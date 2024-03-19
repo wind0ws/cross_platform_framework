@@ -1,0 +1,11 @@
+#pragma once
+#ifdef VTN_PRJ_VERSION_H
+#define VTN_PRJ_VERSION_H
+
+#define PRJ_VER_MAJOR 3
+#define PRJ_VER_MINOR 0
+#define PRJ_VER_PATCH 0
+
+#define PRJ_VERSION (PRJ_VER_MAJOR * 10000 + PRJ_VER_MINOR * 100 + PRJ_VER_PATCH)
+
+#endif // !VTN_PRJ_VERSION_H

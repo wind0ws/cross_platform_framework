@@ -63,7 +63,7 @@ function(get_warnings_copts warning_as_error _copts _cxxopts)
                 ##-Woverloaded-virtual # warn if you overload (not override) a virtual
 
                 # function
-                -Wpedantic # warn if non-standard C++ is used
+                # -Wpedantic # warn if non-standard C++ is used
                 -Wconversion # warn on type conversions that may lose data
                 -Wsign-conversion # warn on sign conversions
                 # -Wnull-dereference # warn if a null dereference is detected
@@ -139,7 +139,10 @@ function(get_warnings_copts warning_as_error _copts _cxxopts)
                 set(PEDANTIC_COMPILE_FLAGS /W3)
                 set(WERROR_FLAG /WX)
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-                set(PEDANTIC_COMPILE_FLAGS -pedantic-errors -Wall -Wextra -pedantic
+                set(PEDANTIC_COMPILE_FLAGS 
+                        #-pedantic-errors 
+                        -Wall -Wextra 
+                        #-pedantic
 
                         # -Wold-style-cast
                         # -Wundef
@@ -153,7 +156,9 @@ function(get_warnings_copts warning_as_error _copts _cxxopts)
                         -Wno-format-nonliteral)
                 set(PEDANTIC_CXX_COMPILE_FLAGS 
                         ${PEDANTIC_COMPILE_FLAGS}
-                        -pedantic-errors -Wall -Wextra -pedantic
+                        #-pedantic-errors 
+                        -Wall -Wextra 
+                        # -pedantic
 
                         # -Wold-style-cast
                         # -Wundef
@@ -185,7 +190,10 @@ function(get_warnings_copts warning_as_error _copts _cxxopts)
 
                 set(WERROR_FLAG -Werror)
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-                set(PEDANTIC_COMPILE_FLAGS -Wall -Wextra -pedantic -Wconversion
+                set(PEDANTIC_COMPILE_FLAGS 
+                        -Wall -Wextra 
+                        # -pedantic 
+                        -Wconversion
 
                         # -Wundef
                         -Wdeprecated
@@ -215,6 +223,8 @@ function(get_warnings_copts warning_as_error _copts _cxxopts)
 
         list(REMOVE_DUPLICATES PROJECT_WARNINGS)
         list(REMOVE_DUPLICATES PROJECT_CXX_WARNINGS)
+        list(REMOVE_ITEM PROJECT_WARNINGS "-Wpedantic")
+        list(REMOVE_ITEM PROJECT_CXX_WARNINGS "-Wpedantic")
         set(${_copts} ${PROJECT_WARNINGS} PARENT_SCOPE)
         set(${_cxxopts} ${PROJECT_CXX_WARNINGS} PARENT_SCOPE)
 endfunction(get_warnings_copts)

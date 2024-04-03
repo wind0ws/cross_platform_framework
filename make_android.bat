@@ -29,6 +29,7 @@ set ANDROID_TOOLCHAIN_FILE=%ANDROID_NDK%\build\cmake\android.toolchain.cmake
 set ANDROID_PLATFORM=android-19 
 set ANDROID_STL=c++_static
 ::set ANDROID_STL=gnustl_static
+
 set PARAM3=%3
 if "%PARAM3%" NEQ "" (
   if "%PARAM3%" EQU "c++_static" goto label_set_stl

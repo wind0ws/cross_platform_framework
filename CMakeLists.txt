@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 # Start project
 # ---------------------------------------------------------------------------------------
 include(CheckSymbolExists)
-include(cmake/ide.cmake)
+#include(cmake/ide.cmake)
 include(cmake/compiler_warnings.cmake)
 include(cmake/macros.cmake)
 include(cmake/utility.cmake)
@@ -72,10 +72,11 @@ if(NOT CMAKE_C_STANDARD)
 endif()
 set(PRJ_C_STANDARD ${CMAKE_C_STANDARD})
 set(PRJ_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+message(STATUS "PRJ_C_STANDARD=${PRJ_C_STANDARD}, PRJ_CXX_STANDARD=${PRJ_CXX_STANDARD}")
 
 # make sure __cplusplus is defined when using msvc and enable parallel build
 if(MSVC)
-    string(APPEND CMAKE_CXX_FLAGS " /Zc:__cplusplus /MP")
+  string(APPEND CMAKE_CXX_FLAGS " /Zc:__cplusplus /MP")
 endif()
 
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -197,8 +198,8 @@ option(PRJ_INSTALL "Generate the install target." OFF)
 # endif ()
 
 if(PRJ_BUILD_TESTS)
-    message(STATUS "Generating tests")
-    enable_testing()
+  message(STATUS "Generating tests")
+  enable_testing()
 endif()
 
 #if (PRJ_MINIMIZE)
@@ -238,8 +239,9 @@ MESSAGE(STATUS " PRJ_COMPILE_OPTIONS: ${PRJ_COMPILE_OPTIONS} \n PRJ_CXX_COMPILE_
 #endif()
 
 # ---------------------------------------------------------------------------------------
-# 初始化第三方库依赖列表， 后面自行查找的3方库会被加入到此表中，
-# 最后把这些3方库拷贝到deploy下的运行目录
+# 初始化第三方库依赖列表和依赖资源列表， 后面自行查找的第三方库会被加入到此表中，
+# 最后把这些3方库拷贝到deploy下的运行目录。
+# 这两个变量会在 macros.cmake 中的 find_lib 中追加赋值。
 # ---------------------------------------------------------------------------------------
 set(_PRJ_DEPENDENCY_THIRD_LIBS "")
 set(_PRJ_DEPENDENCY_THIRD_ASSETS "")

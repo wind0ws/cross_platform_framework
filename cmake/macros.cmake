@@ -290,7 +290,7 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
   #else()
   #  set(_lib_name ${_lib_name})
   #endif()
-  
+
   if(NOT "x${${_lib_name}-lib}" STREQUAL "x")
     message(STATUS "${_lib_name}-lib => \"${${_lib_name}-lib}\" is alreay defined. no need lookup again.")
   else()
@@ -299,6 +299,10 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
       message(FATAL_ERROR "can't find lib: ${_lib_name}, because of lib_package_dir(\"${_lib_package_dir}\") not exists!")
     endif()
     
+    # use get_filename_component to get last package dir name.
+    get_filename_component(_lib_name_alias "${_lib_package_dir}" NAME)  
+    message(STATUS "  \"${_lib_name}\" on folder \"${_lib_name_alias}\"")
+
     # 1. 查找库 路径
     set(_lib_dirs "")
     set(_lib_relative_dirs ${${_lib_relative_dir_list}}) # <-- 展开list参数
@@ -354,8 +358,11 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
       if(DEFINED _PRJ_DEPENDENCY_THIRD_ASSETS)
         message(STATUS "  _PRJ_DEPENDENCY_THIRD_ASSETS is defined, now add \"${_lib_name}-asset\" to dict")
         # cmake字典以分号为分隔符：  a=b;c=d;e=f
-        list(APPEND _PRJ_DEPENDENCY_THIRD_ASSETS ";${_lib_name}=${${_lib_name}-asset}") 
+        #list(APPEND _PRJ_DEPENDENCY_THIRD_ASSETS ";${_lib_name}=${${_lib_name}-asset}") 
+        list(APPEND _PRJ_DEPENDENCY_THIRD_ASSETS ";${_lib_name_alias}=${${_lib_name}-asset}") 
         set(_PRJ_DEPENDENCY_THIRD_ASSETS ${_PRJ_DEPENDENCY_THIRD_ASSETS} PARENT_SCOPE) # <-- 反馈到父级模块
+      else()
+        message(WARNING "\"_PRJ_DEPENDENCY_THIRD_ASSETS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
       endif()
     else()
       unset(${_lib_name}-asset CACHE)  
@@ -372,6 +379,8 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
       # 变量作用域只在当前和子模块能读取，改也只是对当前和子模块生效，
       # 要让上级模块变量也得到更新，需要使用 PARENT_SCOPE
       set(_PRJ_DEPENDENCY_THIRD_LIBS ${_PRJ_DEPENDENCY_THIRD_LIBS} PARENT_SCOPE) # <-- 反馈到父级模块
+    else()
+      message(WARNING "\"_PRJ_DEPENDENCY_THIRD_LIBS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
     endif(DEFINED _PRJ_DEPENDENCY_THIRD_LIBS)
   endif()
 endmacro(find_lib) # end of find_lib macro
@@ -382,7 +391,7 @@ endmacro(find_lib) # end of find_lib macro
 macro(check_third_party_dir)
   if (NOT DEFINED PRJ_THIRD_PARTY_DIR)
     if (NOT DEFINED PRJ_SOURCE_DIR)
-      message(FATAL_ERROR "you must define PRJ_SOURCE_DIR first!" )
+      message(FATAL_ERROR "you must define \"PRJ_SOURCE_DIR\" first!" )
     endif()
     # 全局缓存third_party路径
     set(PRJ_THIRD_PARTY_DIR "${PRJ_SOURCE_DIR}/src/third_party" CACHE STRING "")

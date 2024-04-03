@@ -309,6 +309,7 @@ function(prj_cc_library)
       set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/internal)
     endif()
 
+    message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
     # INTERFACE libraries can't have the CXX_STANDARD property set
     set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
     set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
@@ -318,8 +319,7 @@ function(prj_cc_library)
     setup_rpath(${_NAME})
 
     # When being installed, we lose the ${CMAKE_PROJECT_NAME}_ prefix.  We want to put it back
-    # to have properly named lib files.  This is a no-op when we are not being
-    # installed.
+    # to have properly named lib files.  This is a no-op when we are not being installed.
     if(PRJ_ENABLE_INSTALL)
       set_target_properties(${_NAME} PROPERTIES
         OUTPUT_NAME "${CMAKE_PROJECT_NAME}_${_NAME}"
@@ -451,9 +451,12 @@ function(prj_cc_test)
   # Add all targets to a folder in the IDE for organization.
   set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/test)
 
+  message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
   set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
   set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-  
+  set_property(TARGET ${_NAME} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
+  set_property(TARGET ${_NAME} PROPERTY C_STANDARD_REQUIRED ON)
+
   setup_vs_params(${_NAME})
   setup_rpath(${_NAME})
 

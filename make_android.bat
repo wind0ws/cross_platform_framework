@@ -108,7 +108,7 @@ set ERR_CODE=%ERRORLEVEL%
 ::copy /Y .\build_android_v7a\liblcu.so %OUTPUT_DIR%\\
 
 @echo.
-@echo "compile finished. bye bye..."
+@echo "compile finished(%ERR_CODE%). bye bye..."
 ::@pause>nul
 ::color 0F
 @exit /b %ERR_CODE%

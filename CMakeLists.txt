@@ -18,17 +18,34 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_COLOR_MAKEFILE ON)
 
 # ---------------------------------------------------------------------------------------
+# Compiler config
+# ---------------------------------------------------------------------------------------
+if(NOT CMAKE_C_STANDARD)
+  message(STATUS "now define CMAKE_C_STANDARD for project")
+  set(CMAKE_C_STANDARD 11)
+  set(CMAKE_C_STANDARD_REQUIRED ON)
+endif()
+if(NOT CMAKE_CXX_STANDARD)
+  message(STATUS "now define CMAKE_CXX_STANDARD for project")
+  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+set(PRJ_C_STANDARD ${CMAKE_C_STANDARD})
+set(PRJ_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+message(STATUS "PRJ_C_STANDARD=${PRJ_C_STANDARD}, PRJ_CXX_STANDARD=${PRJ_CXX_STANDARD}")
+
+# ---------------------------------------------------------------------------------------
 # Set PRJ_MASTER_PROJECT to ON if we are building this project
 # ---------------------------------------------------------------------------------------
 # Check if project is being used directly or via add_subdirectory, but allow overriding
 if(NOT DEFINED PRJ_MASTER_PROJECT)
 #CMAKE_CURRENT_SOURCE_DIR：这个变量表示当前正在处理的 CMakeLists.txt 文件所在的源代码目录。例如，如果有一个子目录中的 CMakeLists.txt 文件被读取和处理，那么 CMAKE_CURRENT_SOURCE_DIR 会指向这个子目录。
 #CMAKE_SOURCE_DIR：此变量代表最外层的 CMakeLists.txt 文件所在的源代码目录。换句话说，这是项目源代码的根目录
-    if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-        set(PRJ_MASTER_PROJECT ON)
-    else()
-        set(PRJ_MASTER_PROJECT OFF)
-    endif()
+  if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    set(PRJ_MASTER_PROJECT ON)
+  else()
+    set(PRJ_MASTER_PROJECT OFF)
+  endif()
 endif()
 message(STATUS "PRJ_MASTER_PROJECT => ${PRJ_MASTER_PROJECT}")
 
@@ -58,21 +75,6 @@ set(PRJ_IDE_FOLDER ${PRJ_OUTPUT_DIR} CACHE STRING "")
 message(STATUS "root of project: PRJ_SOURCE_DIR => ${PRJ_SOURCE_DIR}")
 #set(PRJ_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 include(cmake/platform_detector.cmake)
-
-# ---------------------------------------------------------------------------------------
-# Compiler config
-# ---------------------------------------------------------------------------------------
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif()
-if(NOT CMAKE_C_STANDARD)
-  set(CMAKE_C_STANDARD 11)
-  set(CMAKE_C_STANDARD_REQUIRED ON)
-endif()
-set(PRJ_C_STANDARD ${CMAKE_C_STANDARD})
-set(PRJ_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-message(STATUS "PRJ_C_STANDARD=${PRJ_C_STANDARD}, PRJ_CXX_STANDARD=${PRJ_CXX_STANDARD}")
 
 # make sure __cplusplus is defined when using msvc and enable parallel build
 if(MSVC)

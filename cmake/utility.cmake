@@ -311,10 +311,10 @@ function(prj_cc_library)
 
     message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
     # INTERFACE libraries can't have the CXX_STANDARD property set
-    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
-    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
     set_property(TARGET ${_NAME} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
     set_property(TARGET ${_NAME} PROPERTY C_STANDARD_REQUIRED ON)
+    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
+    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
     setup_vs_params(${_NAME})
     setup_rpath(${_NAME})
 
@@ -451,12 +451,18 @@ function(prj_cc_test)
   # Add all targets to a folder in the IDE for organization.
   set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/test)
 
-  message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
-  set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
-  set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
+  # Linker language can be inferred from sources, but in the case of DLLs we
+  # don't have any .cc files so it would be ambiguous. We could set it
+  # explicitly only in the case of DLLs but, because "CXX" is always the
+  # correct linker language for static or for shared libraries, we set it
+  # unconditionally. 
+  set_property(TARGET ${_NAME} PROPERTY LINKER_LANGUAGE "CXX")
+
+  # message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
   set_property(TARGET ${_NAME} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
   set_property(TARGET ${_NAME} PROPERTY C_STANDARD_REQUIRED ON)
-
+  set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
+  set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
   setup_vs_params(${_NAME})
   setup_rpath(${_NAME})
 

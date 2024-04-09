@@ -7,7 +7,7 @@ prj_cc_library(
     #${HEADERS}
   SRCS
     "my_api.c" 
-	"my_api_legacy.c"
+    "my_api_legacy.c"
   COPTS
     ${PRJ_COMPILE_OPTIONS}
   DEPS

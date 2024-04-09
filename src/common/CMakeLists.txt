@@ -28,16 +28,16 @@ prj_cc_library(
   PUBLIC
 )
 
-#prj_cc_test(
-#  NAME
-#    common_test
-#  HDRS
-#    ${HEADERS}
-#  SRCS
-#    "common_test.c"
-#  COPTS
-#    ${PRJ_COMPILE_OPTIONS}
-#  DEPS
-#    ${CMAKE_PROJECT_NAME}::common
-#  PUBLIC
-#)
+prj_cc_test(
+ NAME
+   common_test
+ HDRS
+  #  ${HEADERS}
+ SRCS
+   "common_test.c"
+ COPTS
+  #  ${PRJ_COMPILE_OPTIONS}
+ DEPS
+   ${CMAKE_PROJECT_NAME}::common
+ PUBLIC
+)

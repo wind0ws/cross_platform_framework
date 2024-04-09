@@ -44,11 +44,11 @@
   > 支持4种BUILD_TYPE: *Debug*, *Release*, *MinSizeRel*, *RelWithDebInfo*
   1. windows:  
      > 自动检测并使用系统安装的最新 Visual Studio 版本:  
-       ```
+       ```shell
           make_windows.bat Win32 Debug
        ```  
      > 指定Visual Studio版本(首先确保系统里已安装对应版本):  
-       ```
+       ```shell
           make_windows.bat Win64 Debug "Visual Studio 14 2015 Win64"  
           make_windows.bat Win32 Release "Visual Studio 14 2015"  
           make_windows.bat Win32 MinSizeRel "Visual Studio 16 2019"  
@@ -57,7 +57,7 @@
   2. android:  
      > 支持编译不同的`ANDROID_PLATFORM_ABI`及`ANDROID_STL(c++_static/gnustl_static)`.  
      > 默认不加stl参数则使用的是`c++_static`
-       ```
+       ```shell
           make_android.bat armeabi-v7a Debug 
           make_android.bat arm64-v8a Release
           make_android.bat armeabi-v7a MinSizeRel gnustl_static
@@ -68,7 +68,7 @@
      > 如需交叉编译，需先在 *cmake/toolchains/* 下新建对应平台的交叉编译文件。  
      > 例如rk3308, 则在 *cmake/toolchains/* 下新建 *rk3308.toolchain.cmake* 交叉编译文件，  
        并在里面按照cmake语法写上编译器位置及必要的编译参数（如果没有就不写），具体的参考工程里自带的写法。
-      ```
+      ```shell
         # 编译64位linux
         make_cross_platform.sh linux m64 Release
         # 编译32位linux

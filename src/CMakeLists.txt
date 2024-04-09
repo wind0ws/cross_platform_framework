@@ -20,16 +20,16 @@ if(PRJ_BUILD_ALL_IN_ONE)
    
     prj_cc_library(
         NAME
-          ${CMAKE_PROJECT_NAME}
+          ${CMAKE_PROJECT_NAME} # <-- 使用项目名作为target名称，不会在target名称前面再次追加 CMAKE_PROJECT_NAME
         HDRS
-          #${CUR_HDRS} #<-- 当前目录不需要显式添加，会在function里自动添加
+          #${CUR_HDRS} # <-- 当前目录不需要显式添加，会在function里自动添加到 include_directories
           #${lcu-inc}
         SRCS
           ${CUR_SRCS}
         COPTS # <-- C OPTIONS
-          ${PRJ_COMPILE_OPTIONS}
+          # ${PRJ_COMPILE_OPTIONS} # <-- 若无添加特殊参数需求，无需显式设置，会自动设置此参数，下面CXX同理
         CCOPTS # <-- CXX OPTIONS
-          ${PRJ_CXX_COMPILE_OPTIONS}
+          # ${PRJ_CXX_COMPILE_OPTIONS}
         DEPS
           ${CMAKE_PROJECT_NAME}::common
           #${CMAKE_PROJECT_NAME}::jni
@@ -52,35 +52,9 @@ if(PRJ_BUILD_ALL_IN_ONE)
     #endif()
     #add_custom_target(_merge ALL DEPENDS libmerge.a)
 
-
-    # ---------------------------------------------------------------------------------------
-    # 拷贝第三方库文件到部署目录
-    # ---------------------------------------------------------------------------------------
-    list(LENGTH _PRJ_DEPENDENCY_THIRD_LIBS _PRJ_DEPENDENCY_THIRD_LIBS_LENGTH)
-    message(STATUS "_PRJ_DEPENDENCY_THIRD_LIBS(${_PRJ_DEPENDENCY_THIRD_LIBS_LENGTH}) => ${_PRJ_DEPENDENCY_THIRD_LIBS}")
-    if (_PRJ_DEPENDENCY_THIRD_LIBS_LENGTH GREATER 0)
-      message(STATUS "will copy _PRJ_DEPENDENCY_THIRD_LIBS for you")
-      # 这里用的是变量名，而没有引用其值。因为他是macro，在macro里会对其解引用
-      copy_file_on_post_build(${CMAKE_PROJECT_NAME} _PRJ_DEPENDENCY_THIRD_LIBS)
-    endif()
+    #
+    # copy "_PRJ_DEPENDENCY_THIRD_LIBS" and "_PRJ_DEPENDENCY_THIRD_ASSETS" to target output dir.
+    #
+    copy_dependency_lib_and_asset(${CMAKE_PROJECT_NAME} "../../res")
     
-    # ---------------------------------------------------------------------------------------
-    # 拷贝第三方库的asset到部署目录
-    # ---------------------------------------------------------------------------------------
-    list(LENGTH _PRJ_DEPENDENCY_THIRD_ASSETS _PRJ_DEPENDENCY_THIRD_ASSETS_LENGTH)
-    message(STATUS "_PRJ_DEPENDENCY_THIRD_ASSETS(${_PRJ_DEPENDENCY_THIRD_ASSETS_LENGTH}) => ${_PRJ_DEPENDENCY_THIRD_ASSETS}")
-    if (_PRJ_DEPENDENCY_THIRD_ASSETS_LENGTH GREATER 0)
-      message(STATUS "will copy _PRJ_DEPENDENCY_THIRD_ASSETS for you")
-      foreach(entry ${_PRJ_DEPENDENCY_THIRD_ASSETS})
-        # 将每个键值对拆分为键和值
-        string(REPLACE "=" ";" key_value ${entry})
-        list(GET key_value 0 _key)
-        list(GET key_value 1 _value)
-        set(_tgt_relative_path "../../res/${_key}")
-        message(STATUS "third_moudle_name = ${_key}, asset = ${_value}, relative_path = ${_tgt_relative_path}")
-        copy_dir_on_post_build(${CMAKE_PROJECT_NAME} ${_tgt_relative_path} ${_value})
-      endforeach()
-    endif()
-endif()
-
-
+endif(PRJ_BUILD_ALL_IN_ONE)

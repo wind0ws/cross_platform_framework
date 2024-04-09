@@ -6,12 +6,22 @@ prj_cc_test(
   SRCS
     "demo.c"
   COPTS
-    ${PRJ_COMPILE_OPTIONS}
+    # ${PRJ_COMPILE_OPTIONS}
   DEPS
     #${CMAKE_PROJECT_NAME}::all
     ${CMAKE_PROJECT_NAME} # <-- PRJ_BUILD_ALL_IN_ONE
   PUBLIC
 )
+
+if(PRJ_BUILD_TESTS)
+  if(MSVC)
+    # VS_STARTUP_PROJECT not support alias target, so find the real name first.
+    get_target_property(_demo_tgt_name ${CMAKE_PROJECT_NAME}::demo ALIASED_TARGET)
+    #set vs startup project. 
+    set_property(DIRECTORY ${PRJ_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${_demo_tgt_name})
+    message(STATUS "  set startup project:  ${_demo_tgt_name}")
+  endif(MSVC)
+endif(PRJ_BUILD_TESTS)
 
 #if(PRJ_BUILD_TESTS) 
 #  add_executable(check_config "check_config.cpp")

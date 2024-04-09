@@ -53,7 +53,7 @@ message(STATUS "PRJ_MASTER_PROJECT => ${PRJ_MASTER_PROJECT}")
 # Set default build type to release
 # ---------------------------------------------------------------------------------------
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif()
 message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
@@ -83,7 +83,7 @@ endif()
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(CMAKE_SYSTEM_NAME MATCHES "CYGWIN" OR CMAKE_SYSTEM_NAME MATCHES "MSYS")
-   set(CMAKE_CXX_EXTENSIONS ON)
+  set(CMAKE_CXX_EXTENSIONS ON)
 endif()
 
 # ---------------------------------------------------------------------------------------
@@ -240,17 +240,11 @@ MESSAGE(STATUS " PRJ_COMPILE_OPTIONS: ${PRJ_COMPILE_OPTIONS} \n PRJ_CXX_COMPILE_
 #    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/abseil-tiny" EXCLUDE_FROM_ALL)
 #endif()
 
-# ---------------------------------------------------------------------------------------
-# 初始化第三方库依赖列表和依赖资源列表， 后面自行查找的第三方库会被加入到此表中，
-# 最后把这些3方库拷贝到deploy下的运行目录。
-# 这两个变量会在 macros.cmake 中的 find_lib 中追加赋值。
-# ---------------------------------------------------------------------------------------
-set(_PRJ_DEPENDENCY_THIRD_LIBS "")
-set(_PRJ_DEPENDENCY_THIRD_ASSETS "")
+# define "_PRJ_DEPENDENCY_THIRD_ASSETS" and "_PRJ_DEPENDENCY_THIRD_ASSETS"
+define_dependency_var()
 
 #子模块可以这样引入别的模块头文件， 
 #   模块引入本目录下的 include "current_folder.h"  ; 引入别的模块的 include "src/other_module/other_module.h"
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/")
-
 

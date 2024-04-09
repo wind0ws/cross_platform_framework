@@ -1,6 +1,6 @@
 
 #include "common.h"
-#define LOG_TAG "DEMO"
+#define LOG_TAG "COMMON_TEST"
 #include "my_logger.h"
 #include <stdio.h>
 
@@ -13,7 +13,9 @@ int main(int argc, char *argv[])
 	}
 	LOGD_TRACE("hello...");
 
-	// do your business here
+	LOG_SET_MIN_LEVEL(LOG_LEVEL_DEBUG);
+    LOGV("you won't see this line.");
+    LOG_SET_MIN_LEVEL(LOG_LEVEL_VERBOSE);
 
 	LOGD_TRACE("bye bye...");
 	COMMON_GLOBAL_CLEANUP();

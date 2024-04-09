@@ -108,21 +108,48 @@ function(set_verbose)
   set(${var} ${val} CACHE ${type} ${doc})
 endfunction(set_verbose)
 
+macro(_setup_vs_params _tgt_name)
+  if(MSVC)
+    if(NOT DEFINED PRJ_OUTPUT_DIR) # <-- which is deploy dir
+      message(FATAL_ERROR "you must defined PRJ_OUTPUT_DIR variable first!")
+    endif()
+    # message(STATUS " setup vs params for ${_tgt_name}, VS_DEBUGGER_WORKING_DIRECTORY: ${PRJ_OUTPUT_DIR}")
+    set_property(TARGET ${_tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set_property(TARGET ${_tgt_name} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${PRJ_OUTPUT_DIR}) # also can be "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+  endif(MSVC)
+endmacro(_setup_vs_params)
 
-macro(setup_vs_params tgt_name)
-    #message(STATUS " setup param for ${tgt_name}")
-  	set_property(TARGET ${tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set_property(TARGET ${tgt_name} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-endmacro(setup_vs_params)
-
-
-macro(setup_rpath tgt_name)
+macro(_setup_rpath _tgt_name)
   # 去除cmake编译时候带的环境，并重设为库所在的当前目录
-  if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     SET(CMAKE_SKIP_RPATH TRUE)
-    set_target_properties(${tgt_name} PROPERTIES LINK_FLAGS "-Wl,-rpath,\$ORIGIN:\$ORIGIN/lib:\$ORIGIN/libs")
-  endif ()
-endmacro(setup_rpath)
+    set_target_properties(${_tgt_name} PROPERTIES LINK_FLAGS "-Wl,-rpath,\$ORIGIN:\$ORIGIN/lib:\$ORIGIN/libs")
+  endif()
+endmacro(_setup_rpath)
+
+#
+# batch setup properties for target: setup c/cxx standard, linker_language, rpath, vs param...
+#   tgt_name: the target name
+#
+macro(batch_setup_target_properties _tgt_name)
+  if((NOT PRJ_C_STANDARD) OR (NOT PRJ_CXX_STANDARD))
+    message(FATAL_ERROR "you must define \"PRJ_C_STANDARD\" and \"PRJ_CXX_STANDARD\" first!")
+  endif()
+  # INTERFACE libraries can't have the CXX_STANDARD property set
+  # message(STATUS "setup \"${_tgt_name}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
+  set_property(TARGET ${_tgt_name} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
+  set_property(TARGET ${_tgt_name} PROPERTY C_STANDARD_REQUIRED ON)
+  set_property(TARGET ${_tgt_name} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
+  set_property(TARGET ${_tgt_name} PROPERTY CXX_STANDARD_REQUIRED ON)
+  # Linker language can be inferred from sources, but in the case of DLLs we
+  # don't have any .cc files so it would be ambiguous. We could set it
+  # explicitly only in the case of DLLs but, because "CXX" is always the
+  # correct linker language for static or for shared libraries, we set it
+  # unconditionally. 
+  set_property(TARGET ${_tgt_name} PROPERTY LINKER_LANGUAGE "CXX")
+  _setup_vs_params(${_tgt_name})
+  _setup_rpath(${_tgt_name})
+endmacro(batch_setup_target_properties)
 
 
 # prj_cc_library()
@@ -247,13 +274,6 @@ function(prj_cc_library)
       message(FATAL_ERROR "invalid lib type: ${_lib_type}, should be \"STATIC\" or \"SHARED\"")
     endif()
 
-    # Linker language can be inferred from sources, but in the case of DLLs we
-    # don't have any .cc files so it would be ambiguous. We could set it
-    # explicitly only in the case of DLLs but, because "CXX" is always the
-    # correct linker language for static or for shared libraries, we set it
-    # unconditionally. 
-    set_property(TARGET ${_NAME} PROPERTY LINKER_LANGUAGE "CXX")
-
     if (NOT DEFINED PRJ_SOURCE_DIR)
       message(FATAL_ERROR "you must define PRJ_SOURCE_DIR first. eg. set(PRJ_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}) on root CMakeLists.txt of project")  
     endif()
@@ -309,14 +329,8 @@ function(prj_cc_library)
       set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/internal)
     endif()
 
-    message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
     # INTERFACE libraries can't have the CXX_STANDARD property set
-    set_property(TARGET ${_NAME} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
-    set_property(TARGET ${_NAME} PROPERTY C_STANDARD_REQUIRED ON)
-    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
-    set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-    setup_vs_params(${_NAME})
-    setup_rpath(${_NAME})
+    batch_setup_target_properties(${_NAME})
 
     # When being installed, we lose the ${CMAKE_PROJECT_NAME}_ prefix.  We want to put it back
     # to have properly named lib files.  This is a no-op when we are not being installed.
@@ -366,7 +380,7 @@ function(prj_cc_library)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
   endif()
-
+  # setup library alias
   add_library(${CMAKE_PROJECT_NAME}::${PRJ_CC_LIB_NAME} ALIAS ${_NAME})
 
 endfunction(prj_cc_library)
@@ -451,22 +465,12 @@ function(prj_cc_test)
   # Add all targets to a folder in the IDE for organization.
   set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/test)
 
-  # Linker language can be inferred from sources, but in the case of DLLs we
-  # don't have any .cc files so it would be ambiguous. We could set it
-  # explicitly only in the case of DLLs but, because "CXX" is always the
-  # correct linker language for static or for shared libraries, we set it
-  # unconditionally. 
-  set_property(TARGET ${_NAME} PROPERTY LINKER_LANGUAGE "CXX")
-
-  # message(STATUS "setup \"${_NAME}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
-  set_property(TARGET ${_NAME} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
-  set_property(TARGET ${_NAME} PROPERTY C_STANDARD_REQUIRED ON)
-  set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
-  set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-  setup_vs_params(${_NAME})
-  setup_rpath(${_NAME})
+  batch_setup_target_properties(${_NAME})
 
   add_test(NAME ${_NAME} COMMAND ${_NAME})
+  # setup executable alias
+  add_executable(${CMAKE_PROJECT_NAME}::${PRJ_CC_TEST_NAME} ALIAS ${_NAME})
+  message(STATUS "${CMAKE_PROJECT_NAME}::${PRJ_CC_TEST_NAME} ALIAS ${_NAME}")
   
-  message(STATUS "target: ${_NAME} executable")
+  message(STATUS "target: ${_NAME} executable(test)")
 endfunction(prj_cc_test)

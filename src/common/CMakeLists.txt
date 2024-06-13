@@ -11,19 +11,26 @@
 include(${PRJ_THIRD_PARTY_DIR}/lcu/find_me.cmake)
 message(STATUS "common show: lcu-lib=${lcu-lib}, lcu-inc=${lcu-inc}, lcu-asset=${lcu-asset}")
 
+# find socket lib
+set(socket-lib "")
+if(MSVC)
+  set(socket-lib "ws2_32")
+endif(MSVC)
 
 prj_cc_library(
   NAME
     common
   HDRS
     #${HEADERS}
+    ${PRJ_COMMON_INCLUDE_DIRS} # which is "${PRJ_SOURCE_DIR}/src": include "src" dir. for module which depend on this module to use it
     ${lcu-inc}
   SRCS
     "common.c"
   COPTS
-    ${PRJ_COMPILE_OPTIONS}
+    # ${PRJ_COMPILE_OPTIONS}
   DEPS
     ${lcu-lib}
+    ${socket-lib}
 	#${PRJ_DEPENDS_LOG}
   PUBLIC
 )

@@ -73,7 +73,10 @@ set(PRJ_OUTPUT_DIR ${PRJ_SOURCE_DIR}/tool/deploy CACHE STRING "")
 # For example, Visual Studio supports folders.
 set(PRJ_IDE_FOLDER ${PRJ_OUTPUT_DIR} CACHE STRING "")
 message(STATUS "root of project: PRJ_SOURCE_DIR => ${PRJ_SOURCE_DIR}")
-#set(PRJ_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+# ---------------------------------------------------------------------------------------
+# now we can include platform_detector.cmake, 
+# because we have defined PRJ_SOURCE_DIR/PRJ_OUTPUT_DIR.
+# ---------------------------------------------------------------------------------------
 include(cmake/platform_detector.cmake)
 
 # make sure __cplusplus is defined when using msvc and enable parallel build
@@ -122,6 +125,7 @@ option(PRJ_INSTALL "Generate the install target" ${PRJ_MASTER_PROJECT})
 
 # third_party lib shared options: if ON, use third_party shared lib.
 option(PRJ_THIRD_LIB_SHARED "use shared lib on third_party" OFF)
+message(STATUS "PRJ_THIRD_LIB_SHARED=${PRJ_THIRD_LIB_SHARED}")
 
 # clang-tidy
 if(${CMAKE_VERSION} VERSION_GREATER "3.5")

@@ -35,19 +35,18 @@ if(NOT DEFINED PRJ_DEBUG_POSTFIX)
   set(PRJ_DEBUG_POSTFIX d STRING "Debug library postfix.")
 endif()
 
-
 # Turn on warnings on the given target
 function(prj_enable_warnings target_name)
   if(NOT PRJ_BUILD_WARNINGS)
     return()
   endif()
-  
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-      list(APPEND MSVC_OPTIONS "/W3")
 
-      if(MSVC_VERSION GREATER 1900) # Allow non fatal security warnings for msvc 2015
-        list(APPEND MSVC_OPTIONS "/WX")
-      endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    list(APPEND MSVC_OPTIONS "/W3")
+
+    if(MSVC_VERSION GREATER 1900) # Allow non fatal security warnings for msvc 2015
+      list(APPEND MSVC_OPTIONS "/WX")
+    endif()
   endif()
 
   target_compile_options(
@@ -62,7 +61,6 @@ function(prj_enable_warnings target_name)
     $<$<CXX_COMPILER_ID:MSVC>:${MSVC_OPTIONS}>)
 endfunction(prj_enable_warnings)
 
-
 # Enable address sanitizer (gcc/clang only)
 function(prj_enable_sanitizer target_name)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -75,9 +73,9 @@ function(prj_enable_sanitizer target_name)
   target_compile_options(${target_name} PRIVATE -fno-sanitize-recover=all)
   target_compile_options(${target_name} PRIVATE -fno-omit-frame-pointer)
   target_link_libraries(${target_name} PRIVATE -fsanitize=address,undefined)
+
   # target_link_libraries(${target_name} PRIVATE -fsanitize=address,undefined -fuse-ld=gold)
 endfunction(prj_enable_sanitizer)
-
 
 # Joins arguments and places the results in ${result_var}.
 function(join result_var)
@@ -90,7 +88,6 @@ function(join result_var)
   set(${result_var} "${result}" PARENT_SCOPE)
 endfunction(join)
 
-
 # Sets a cache variable with a docstring joined from multiple arguments:
 # set(<variable> <value>... CACHE <type> <docstring>...)
 # This allows splitting a long docstring for readability.
@@ -102,7 +99,7 @@ function(set_verbose)
   list(GET ARGN 0 val)
   list(REMOVE_AT ARGN 0) # val <-- attention：val must be not empty, otherwise it will cause CACHE to be val
   list(REMOVE_AT ARGN 0) # CACHE
-  list(GET ARGN 0 type) 
+  list(GET ARGN 0 type)
   list(REMOVE_AT ARGN 0) # type
   join(doc ${ARGN})
   set(${var} ${val} CACHE ${type} ${doc})
@@ -113,6 +110,7 @@ macro(_setup_vs_params _tgt_name)
     if(NOT DEFINED PRJ_OUTPUT_DIR) # <-- which is deploy dir
       message(FATAL_ERROR "you must defined PRJ_OUTPUT_DIR variable first!")
     endif()
+
     # message(STATUS " setup vs params for ${_tgt_name}, VS_DEBUGGER_WORKING_DIRECTORY: ${PRJ_OUTPUT_DIR}")
     set_property(TARGET ${_tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     set_property(TARGET ${_tgt_name} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${PRJ_OUTPUT_DIR}) # also can be "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
@@ -129,28 +127,29 @@ endmacro(_setup_rpath)
 
 #
 # batch setup properties for target: setup c/cxx standard, linker_language, rpath, vs param...
-#   tgt_name: the target name
+# tgt_name: the target name
 #
 macro(batch_setup_target_properties _tgt_name)
-  if((NOT PRJ_C_STANDARD) OR (NOT PRJ_CXX_STANDARD))
+  if((NOT PRJ_C_STANDARD) OR(NOT PRJ_CXX_STANDARD))
     message(FATAL_ERROR "you must define \"PRJ_C_STANDARD\" and \"PRJ_CXX_STANDARD\" first!")
   endif()
+
   # INTERFACE libraries can't have the CXX_STANDARD property set
   # message(STATUS "setup \"${_tgt_name}\": C_STANDARD=${PRJ_C_STANDARD}, CXX_STANDARD=${PRJ_CXX_STANDARD}")
   set_property(TARGET ${_tgt_name} PROPERTY C_STANDARD ${PRJ_C_STANDARD})
   set_property(TARGET ${_tgt_name} PROPERTY C_STANDARD_REQUIRED ON)
   set_property(TARGET ${_tgt_name} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
   set_property(TARGET ${_tgt_name} PROPERTY CXX_STANDARD_REQUIRED ON)
+
   # Linker language can be inferred from sources, but in the case of DLLs we
   # don't have any .cc files so it would be ambiguous. We could set it
   # explicitly only in the case of DLLs but, because "CXX" is always the
   # correct linker language for static or for shared libraries, we set it
-  # unconditionally. 
+  # unconditionally.
   set_property(TARGET ${_tgt_name} PROPERTY LINKER_LANGUAGE "CXX")
   _setup_vs_params(${_tgt_name})
   _setup_rpath(${_tgt_name})
 endmacro(batch_setup_target_properties)
-
 
 # prj_cc_library()
 #
@@ -162,10 +161,10 @@ endmacro(batch_setup_target_properties)
 # SRCS: List of source files for the library
 # DEPS: List of other libraries to be linked in to the binary targets
 # COPTS: List of private compile options for C. if not provide, use PRJ_COMPILE_OPTIONS instead!
-# CCOPTS: List of private compile options for CXX. 
-#        if CCOPTS not provide:
-#           1. COPTS not provide too, use PRJ_CXX_COMPILE_OPTIONS instead!
-#           2. COPTS was provided, use COPTS as CXX options.
+# CCOPTS: List of private compile options for CXX.
+# if CCOPTS not provide:
+# 1. COPTS not provide too, use PRJ_CXX_COMPILE_OPTIONS instead!
+# 2. COPTS was provided, use COPTS as CXX options.
 # DEFINES: List of public defines
 # LINKOPTS: List of link options
 # PUBLIC: Add this so that this library will be exported under ${CMAKE_PROJECT_NAME}::
@@ -174,34 +173,34 @@ endmacro(batch_setup_target_properties)
 #
 # Note:
 # By default, prj_cc_library will always create a library named ${CMAKE_PROJECT_NAME}_${NAME},
-# and alias target ${CMAKE_PROJECT_NAME}::${NAME}.  
+# and alias target ${CMAKE_PROJECT_NAME}::${NAME}.
 # eg. The ${CMAKE_PROJECT_NAME}::form should always be used.
 # This is to reduce namespace pollution.
 #
 # prj_cc_library(
 # NAME
-#   awesome
+# awesome
 # HDRS
-#   "a.h"
+# "a.h"
 # SRCS
-#   "a.cc"
+# "a.cc"
 # )
 # prj_cc_library(
 # NAME
-#   fantastic_lib
+# fantastic_lib
 # SRCS
-#   "b.cc"
+# "b.cc"
 # DEPS
-#   ${CMAKE_PROJECT_NAME}::awesome # not "awesome" !
+# ${CMAKE_PROJECT_NAME}::awesome # not "awesome" !
 # PUBLIC
 # )
 #
 # prj_cc_library(
 # NAME
-#   main_lib
+# main_lib
 # ...
 # DEPS
-#   ${CMAKE_PROJECT_NAME}::fantastic_lib
+# ${CMAKE_PROJECT_NAME}::fantastic_lib
 # )
 #
 # TODO: Implement "ALWAYSLINK"
@@ -220,7 +219,7 @@ function(prj_cc_library)
   if(PRJ_ENABLE_INSTALL)
     set(_NAME "${PRJ_CC_LIB_NAME}")
   else()
-    if ("${PRJ_CC_LIB_NAME}" MATCHES "${CMAKE_PROJECT_NAME}") # <== we are not going to repeat the CMAKE_PROJECT_NAME 
+    if("${PRJ_CC_LIB_NAME}" MATCHES "${CMAKE_PROJECT_NAME}") # <== we are not going to repeat the CMAKE_PROJECT_NAME
       set(_NAME "${PRJ_CC_LIB_NAME}")
     else()
       set(_NAME "${CMAKE_PROJECT_NAME}_${PRJ_CC_LIB_NAME}")
@@ -247,7 +246,8 @@ function(prj_cc_library)
 
   if(PRJ_BUILD_SHARED OR BUILD_SHARED_LIBS)
     set(_lib_type "SHARED")
-    if (PRJ_BUILD_ALL_IN_ONE AND (NOT _NAME STREQUAL "${CMAKE_PROJECT_NAME}"))
+
+    if(PRJ_BUILD_ALL_IN_ONE AND(NOT _NAME STREQUAL "${CMAKE_PROJECT_NAME}"))
       set(_lib_type "STATIC")
       message(STATUS "PRJ_BUILD_ALL_IN_ONE is ON, let \"${_NAME}\" lib_type change to ${_lib_type}, for \"${CMAKE_PROJECT_NAME}\" to include it.")
     endif()
@@ -255,13 +255,13 @@ function(prj_cc_library)
     set(_lib_type "STATIC")
   endif()
 
-  if (PRJ_MINIMIZE)
+  if(PRJ_MINIMIZE)
     list(APPEND PRJ_CC_LIB_DEFINES "PRJ_MINIMIZE")
   endif()
 
   if(NOT PRJ_CC_LIB_IS_INTERFACE)
     if(_lib_type STREQUAL "STATIC" OR _lib_type STREQUAL "SHARED")
-      #add_library(${_NAME} "") # <-- 如果不显式的设置库类型，那么库的类型由 BUILD_SHARED_LIBS 这个开关来控制，ON则为SHARED
+      # add_library(${_NAME} "") # <-- 如果不显式的设置库类型，那么库的类型由 BUILD_SHARED_LIBS 这个开关来控制，ON则为SHARED
       add_library(${_NAME} ${_lib_type} "") # <-- 无视 BUILD_SHARED_LIBS 开关，自行控制库的编译类型
       target_sources(${_NAME} PRIVATE ${PRJ_CC_LIB_SRCS} ${PRJ_CC_LIB_HDRS})
       target_link_libraries(${_NAME}
@@ -274,49 +274,55 @@ function(prj_cc_library)
       message(FATAL_ERROR "invalid lib type: ${_lib_type}, should be \"STATIC\" or \"SHARED\"")
     endif()
 
-    if (NOT DEFINED PRJ_SOURCE_DIR)
-      message(FATAL_ERROR "you must define PRJ_SOURCE_DIR first. eg. set(PRJ_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}) on root CMakeLists.txt of project")  
+    if(NOT DEFINED PRJ_SOURCE_DIR)
+      message(FATAL_ERROR "you must define PRJ_SOURCE_DIR first. eg. set(PRJ_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}) on root CMakeLists.txt of project")
     endif()
+
     # add current dir to include directories
     list(APPEND PRJ_CC_LIB_HDRS ${CMAKE_CURRENT_SOURCE_DIR})
     list(REMOVE_DUPLICATES PRJ_CC_LIB_HDRS) # <-- remove duplicates
-    #message(STATUS "target: ${_NAME}: HDRS => ${PRJ_CC_LIB_HDRS}")
+
+    # message(STATUS "target: ${_NAME}: HDRS => ${PRJ_CC_LIB_HDRS}")
     target_include_directories(${_NAME}
       PUBLIC
-      ${PRJ_CC_LIB_HDRS}          # add custom headers  
-      $<BUILD_INTERFACE:${PRJ_SOURCE_DIR}/>	 # PRJ_SOURCE_DIR is defined by ourself, which on root CMakeLists.txt.
-      #$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/> # PROJECT_SOURCE_DIR is the dir which CMakeLists.txt declare project(xxxx)
+      ${PRJ_CC_LIB_HDRS} # add custom headers
+      $<BUILD_INTERFACE:${PRJ_SOURCE_DIR}/> # PRJ_SOURCE_DIR is defined by ourself, which on root CMakeLists.txt.
+
+      # $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/> # PROJECT_SOURCE_DIR is the dir which CMakeLists.txt declare project(xxxx)
       $<INSTALL_INTERFACE:${PRJ_INC_DIR}>
     )
 
     # auto detect compile options for target
-    #  use PRJ_COMPILE_OPTIONS and PRJ_CXX_COMPILE_OPTIONS if OPTS not provided.
-    if ((NOT PRJ_CC_LIB_COPTS) AND PRJ_COMPILE_OPTIONS)
+    # use PRJ_COMPILE_OPTIONS and PRJ_CXX_COMPILE_OPTIONS if OPTS not provided.
+    if((NOT PRJ_CC_LIB_COPTS) AND PRJ_COMPILE_OPTIONS)
       message(STATUS "  detect COPTS not defined, use PRJ_COMPILE_OPTIONS instead.")
       set(PRJ_CC_LIB_COPTS ${PRJ_COMPILE_OPTIONS})
-      if (PRJ_CXX_COMPILE_OPTIONS)
-        set(PRJ_CC_LIB_CCOPTS ${PRJ_CXX_COMPILE_OPTIONS})
-      endif()
+    endif()
+    if((NOT PRJ_CC_LIB_CCOPTS) AND PRJ_CXX_COMPILE_OPTIONS)
+      message(STATUS "  detect CCOPTS not defined, use PRJ_CXX_COMPILE_OPTIONS instead.")
+      set(PRJ_CC_LIB_CCOPTS ${PRJ_CXX_COMPILE_OPTIONS})
     endif()
 
-    if (PRJ_CC_LIB_CCOPTS)
-      message(STATUS "  detect CCOPTS defined, setup for \"${_NAME}\"")
+    if(PRJ_CC_LIB_CCOPTS)
       # 获取当前target的编译参数
       get_target_property(TARGET_COMPILE_OPTIONS ${_NAME} COMPILE_OPTIONS)
-      #message(STATUS "  \"${_NAME}\" COMPILE_OPTIONS=${COMPILE_OPTIONS}")
+
+      # message(STATUS "  \"${_NAME}\" COMPILE_OPTIONS=${COMPILE_OPTIONS}")
       # 设置C源文件的编译选项
       set_property(TARGET ${_NAME} APPEND PROPERTY COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:C>:${PRJ_CC_LIB_COPTS}>)
+
       # 设置C++源文件的编译选项
       set_property(TARGET ${_NAME} APPEND PROPERTY COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CXX>:${PRJ_CC_LIB_CCOPTS}>)
     else()
       target_compile_options(${_NAME} PRIVATE ${PRJ_CC_LIB_COPTS})
     endif(PRJ_CC_LIB_CCOPTS)
-    if (PRJ_CC_LIB_DEFINES)
+
+    if(PRJ_CC_LIB_DEFINES)
       message(STATUS "  setup definitions for ${_NAME}")
       target_compile_definitions(${_NAME} PUBLIC ${PRJ_CC_LIB_DEFINES})
     endif()
 
-    if (PRJ_SANITIZE_ADDRESS)
+    if(PRJ_SANITIZE_ADDRESS)
       prj_enable_sanitizer(${_NAME})
     endif()
 
@@ -341,14 +347,13 @@ function(prj_cc_library)
       )
     endif()
 
-    set_target_properties(${_NAME} PROPERTIES 
-      VERSION ${PROJECT_VERSION} 
+    set_target_properties(${_NAME} PROPERTIES
+      VERSION ${PROJECT_VERSION}
       DEBUG_POSTFIX "${PRJ_DEBUG_POSTFIX}")
 
     # set_target_properties(${_NAME} PROPERTIES
-    #   VERSION ${PROJECT_VERSION} SOVERSION ${CPACK_PACKAGE_VERSION_MAJOR}
-    #   DEBUG_POSTFIX "${PRJ_DEBUG_POSTFIX}")
-
+    # VERSION ${PROJECT_VERSION} SOVERSION ${CPACK_PACKAGE_VERSION_MAJOR}
+    # DEBUG_POSTFIX "${PRJ_DEBUG_POSTFIX}")
     message(STATUS "target: ${_NAME} ${_lib_type}")
 
   else()
@@ -380,11 +385,10 @@ function(prj_cc_library)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
   endif()
+
   # setup library alias
   add_library(${CMAKE_PROJECT_NAME}::${PRJ_CC_LIB_NAME} ALIAS ${_NAME})
-
 endfunction(prj_cc_library)
-
 
 # prj_cc_test()
 #
@@ -404,25 +408,25 @@ endfunction(prj_cc_library)
 #
 # Usage:
 # prj_cc_library(
-#   NAME
-#     awesome
-#   HDRS
-#     "a.h"
-#   SRCS
-#     "a.cc"
-#   PUBLIC
+# NAME
+# awesome
+# HDRS
+# "a.h"
+# SRCS
+# "a.cc"
+# PUBLIC
 # )
 #
 # prj_cc_test(
-#   NAME
-#     awesome_test
-#   HDRS
-#   SRCS
-#     "awesome_test.cc"
-#   DEPS
-#     ${CMAKE_PROJECT_NAME}::awesome
-#     gmock
-#     gtest_main
+# NAME
+# awesome_test
+# HDRS
+# SRCS
+# "awesome_test.cc"
+# DEPS
+# ${CMAKE_PROJECT_NAME}::awesome
+# gmock
+# gtest_main
 # )
 function(prj_cc_test)
   if(NOT PRJ_BUILD_TESTS)
@@ -454,7 +458,7 @@ function(prj_cc_test)
     PRIVATE ${PRJ_CC_TEST_COPTS}
   )
 
-  if (PRJ_SANITIZE_ADDRESS)
+  if(PRJ_SANITIZE_ADDRESS)
     prj_enable_sanitizer(${_NAME})
   endif()
 
@@ -462,15 +466,17 @@ function(prj_cc_test)
     PUBLIC ${PRJ_CC_TEST_DEPS}
     PRIVATE ${PRJ_CC_TEST_LINKOPTS}
   )
+
   # Add all targets to a folder in the IDE for organization.
   set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/test)
 
   batch_setup_target_properties(${_NAME})
 
   add_test(NAME ${_NAME} COMMAND ${_NAME})
+
   # setup executable alias
   add_executable(${CMAKE_PROJECT_NAME}::${PRJ_CC_TEST_NAME} ALIAS ${_NAME})
   message(STATUS "${CMAKE_PROJECT_NAME}::${PRJ_CC_TEST_NAME} ALIAS ${_NAME}")
-  
+
   message(STATUS "target: ${_NAME} executable(test)")
 endfunction(prj_cc_test)

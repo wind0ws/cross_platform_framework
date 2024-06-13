@@ -21,6 +21,8 @@ IF(DEFINED PLATFORM_ABI)
   message(STATUS "your PLATFORM_ABI = ${PLATFORM_ABI}")
 ELSEIF(ANDROID)
   set(PLATFORM_ABI ${ANDROID_ABI})
+  # ANDROID_PLATFORM_LEVEL: such as 16/19/21
+  add_compile_definitions(ANDROID_PLATFORM_LEVEL=${ANDROID_PLATFORM_LEVEL})
 ELSE()
   IF(CMAKE_CL_64)
     if((CMAKE_C_FLAGS MATCHES "m32") OR (CMAKE_SIZEOF_VOID_P EQUAL 4))
@@ -43,8 +45,11 @@ ENDIF(DEFINED PLATFORM_ABI)
 string(TOLOWER "${PLATFORM}" PLATFORM_TOLOWER)
 string(TOLOWER "${PLATFORM_ABI}" PLATFORM_ABI_TOLOWER)
 string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_TOLOWER)
-# get PLATFORM info on code
-add_definitions(-D_PLATFORM=${PLATFORM} -D_PLATFORM_ABI=${PLATFORM_ABI})
+# define PLATFORM info on code
+add_compile_definitions(
+  _PLATFORM="${PLATFORM}"
+  _PLATFORM_ABI="${PLATFORM_ABI}"
+)
 
 if (DEFINED(ANDROID) AND ("${ANDROID_ABI}" MATCHES "x86_64"))
   message(STATUS "it is android-x86_64! let's append CMAKE_SYSTEM_LIBRARY_PATH for fix lib not found error in cmake!")
@@ -127,7 +132,7 @@ ELSE()
   set(COMMON_SHARED_LINKER_FLAGS "${COMMON_EXE_LINKER_FLAGS}")
   set(COMMON_STATIC_LINKER_FLAGS "")
   #add _GNU_SOURCE for pthread_setname_np
-  #add_definitions(-D_GNU_SOURCE)
+  #add_compile_definitions(_GNU_SOURCE=1)
 ENDIF()
 
 string(APPEND CMAKE_C_FLAGS   "${COMMON_C_FLGAS}")

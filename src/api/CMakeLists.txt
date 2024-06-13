@@ -9,8 +9,9 @@ prj_cc_library(
     "my_api.c" 
     "my_api_legacy.c"
   COPTS
-    ${PRJ_COMPILE_OPTIONS}
+    # ${PRJ_COMPILE_OPTIONS}
   DEPS
+    ${CMAKE_PROJECT_NAME}::common
   PUBLIC
 )
 

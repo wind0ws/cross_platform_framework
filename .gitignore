@@ -4,8 +4,18 @@ cmake-build-release/
 .idea/
 .vs/
 .vscode/
+out/
 tool/backup/
 tool/output/
 tool/out/
-tool/deploy/
 tool/build/
+tool/temp/
+tool/deploy/audio/
+tool/deploy/bin/
+tool/deploy/out/
+tool/deploy/output/
+tool/deploy/temp/
+# ignore all sub-dirs and files under res
+tool/deploy/res/*
+# but keep track on res/prj/
+!/tool/deploy/res/prj/

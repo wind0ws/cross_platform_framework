@@ -192,6 +192,17 @@ macro(remove_flag_from_file _target _file _flag)
     endif()
 endmacro(remove_flag_from_file)
 
+#
+# set local and parent scopes var.
+# make it effective in both parent and local scopes.
+#
+#   _var:   name of variable
+#   _value: value of variable
+#
+macro(set_local_and_parent_scopes_var _var _value)
+    set(${_var} ${_value})
+    set(${_var} ${_value} PARENT_SCOPE)
+endmacro()
 
 #
 # define_dependency_var: define _PRJ_DEPENDENCY_THIRD_ASSETS and _PRJ_DEPENDENCY_THIRD_ASSETS var for project
@@ -458,7 +469,7 @@ macro(check_third_party_dir)
     if (NOT EXISTS "${PRJ_THIRD_PARTY_DIR}")
       message(FATAL_ERROR "PRJ_THIRD_PARTY_DIR(\"${PRJ_THIRD_PARTY_DIR}\") not exists!")
     endif()
-  endif()
+  endif(NOT DEFINED PRJ_THIRD_PARTY_DIR)
 endmacro(check_third_party_dir)
 
 #

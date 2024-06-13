@@ -1,13 +1,17 @@
 
-#find_lib_easy("lcu" ON)
-#message(STATUS "src show: lcu-lib=${lcu-lib}, lcu-inc=${lcu-inc}, lcu-asset=${lcu-asset}")
-
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/common")
-#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/jni")
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/api")
+
 #add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/work_flow")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/api")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/example")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/jni")
+
+set(_ALL_IN_ONE_DEP_MODULE ${CMAKE_PROJECT_NAME}::api)
+if (ANDROID)
+  set(_ALL_IN_ONE_DEP_MODULE ${CMAKE_PROJECT_NAME}::jni)
+endif(ANDROID)
+message(STATUS "_ALL_IN_ONE_DEP_MODULE => ${_ALL_IN_ONE_DEP_MODULE}")
 
 
 if(PRJ_BUILD_ALL_IN_ONE)
@@ -20,10 +24,9 @@ if(PRJ_BUILD_ALL_IN_ONE)
    
     prj_cc_library(
         NAME
-          ${CMAKE_PROJECT_NAME} # <-- 使用项目名作为target名称，不会在target名称前面再次追加 CMAKE_PROJECT_NAME
+          ${CMAKE_PROJECT_NAME} # <-- 使用项目名作为 target 名称，不会在 target 名称前面再次追加 CMAKE_PROJECT_NAME
         HDRS
-          #${CUR_HDRS} # <-- 当前目录不需要显式添加，会在function里自动添加到 include_directories
-          #${lcu-inc}
+          #${CUR_HDRS} # <-- 当前目录不需要显式添加，会在 prj_cc_library function里自动添加当前目录到 include_directories
         SRCS
           ${CUR_SRCS}
         COPTS # <-- C OPTIONS
@@ -31,12 +34,11 @@ if(PRJ_BUILD_ALL_IN_ONE)
         CCOPTS # <-- CXX OPTIONS
           # ${PRJ_CXX_COMPILE_OPTIONS}
         DEPS
-          ${CMAKE_PROJECT_NAME}::common
-          #${CMAKE_PROJECT_NAME}::jni
-          ${CMAKE_PROJECT_NAME}::api
-          #${CMAKE_PROJECT_NAME}::work_flow
+          ${_ALL_IN_ONE_DEP_MODULE}
+          # ${CMAKE_PROJECT_NAME}::common
+          # ${CMAKE_PROJECT_NAME}::api
+          # ${CMAKE_PROJECT_NAME}::work_flow
           #${PRJ_DEPENDS_LOG}
-          #${lcu-lib}
         PUBLIC
     )
 

@@ -52,14 +52,14 @@ add_compile_definitions(
 )
 
 if (DEFINED(ANDROID) AND ("${ANDROID_ABI}" MATCHES "x86_64"))
-  message(STATUS "it is android-x86_64! let's append CMAKE_SYSTEM_LIBRARY_PATH for fix lib not found error in cmake!")
+  message(STATUS "it is android-x86_64. let's append CMAKE_SYSTEM_LIBRARY_PATH for fix lib not found error in cmake")
   list(APPEND CMAKE_SYSTEM_LIBRARY_PATH "${ANDROID_SYSTEM_LIBRARY_PATH}/usr/lib64")
   set(CMAKE_SYSTEM_LIBRARY_PATH ${CMAKE_SYSTEM_LIBRARY_PATH} PARENT_SCOPE)
   message(STATUS "current CMAKE_SYSTEM_LIBRARY_PATH => ${CMAKE_SYSTEM_LIBRARY_PATH}")
 elseif(WIN32)
   # for export all symbols on windows 
   # cmake -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=TRUE -DBUILD_SHARED_LIBS=TRUE
-  option(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS "export dll ALL_SYMBOLS" ON)
+  option(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS "export dll ALL_SYMBOLS" OFF)
 endif()
 
 

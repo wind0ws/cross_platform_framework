@@ -105,7 +105,6 @@ function(CheckForLinuxPlatform)
     endif()
 
     SET(LINK_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../libs/linux/${PLATFORM_ABI} PARENT_SCOPE)
-    SET(AIUI_LIBRARY_TYPE ${PLATFORM_ABI} PARENT_SCOPE)
 
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--exclude-libs,ALL")
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--unresolved-symbols=ignore-in-shared-libs")
@@ -113,6 +112,7 @@ function(CheckForLinuxPlatform)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
 
+    # MinSizeRel 编译模式下, 默认 strip 符号.
     SET(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
     SET(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
 endfunction(CheckForLinuxPlatform)
@@ -140,9 +140,9 @@ function(CheckForWindowsPlatform)
     IF(MSVC)
         SET(COMMON_FLAG "-w /utf-8 /nologo /Gm- /Ob2 /errorReport:prompt /WX- /Zc:wchar_t /Zc:inline /Zc:forScope /GR /Gd /Oy- /MT /EHsc /MP")
 
-        if(NOT AIUI_DEBUG)
+        if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
             set(COMMON_FLAG "${COMMON_FLAG} /Os")
-        endif(NOT AIUI_DEBUG)
+        endif()
 
         CHECK_CXX_COMPILER_FLAG("/std:c++latest" COMPILER_SUPPORTS_CXXLATEST)
         CHECK_CXX_COMPILER_FLAG("/std:c++11" COMPILER_SUPPORTS_CXX11)

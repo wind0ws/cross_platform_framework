@@ -1,0 +1,4 @@
+LIBRARY	""
+EXPORTS
+	my_api_get_version                  @1
+    

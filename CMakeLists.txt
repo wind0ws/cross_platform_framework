@@ -16,6 +16,10 @@ message(STATUS "PROJECT => ${PROJECT_NAME} : ${PROJECT_VERSION}")
 #include(GNUInstallDirs)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_COLOR_MAKEFILE ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# show version of toochain.
+prj_show_toolchain_version()
 
 # ---------------------------------------------------------------------------------------
 # Compiler config
@@ -55,7 +59,7 @@ message(STATUS "PRJ_MASTER_PROJECT => ${PRJ_MASTER_PROJECT}")
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif()
-message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
+message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 # ---------------------------------------------------------------------------------------
 # detect platform / abi, and setup output dir.
@@ -88,6 +92,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(CMAKE_SYSTEM_NAME MATCHES "CYGWIN" OR CMAKE_SYSTEM_NAME MATCHES "MSYS")
   set(CMAKE_CXX_EXTENSIONS ON)
 endif()
+
+# ---------------------------------------------------------------------------------------
+# setup PRJ_REPO_BRANCH / PRJ_REPO_REVISION, and also add_definitions
+# ---------------------------------------------------------------------------------------
+prj_setup_repo_info(${PRJ_SOURCE_DIR})
 
 # ---------------------------------------------------------------------------------------
 # Build options
@@ -192,16 +201,10 @@ option(PRJ_PEDANTIC "Enable extra warnings and expensive tests." ON)
 option(PRJ_WERROR "Halt the compilation with an error on compiler warnings." OFF)
 option(PRJ_INSTALL "Generate the install target." OFF)
 
-# no need do here. detect ASAN on utility.cmake by PRJ_SANITIZE_ADDRESS
-# if (PRJ_SANITIZE_ADDRESS AND PRJ_MASTER_PROJECT)
-#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer -fsanitize-recover=address")
-#   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
-# endif()
-
-# set(PRJ_SYSTEM_HEADERS_ATTRIBUTE "")
-# if (PRJ_SYSTEM_HEADERS)
-#   set(PRJ_SYSTEM_HEADERS_ATTRIBUTE SYSTEM)
-# endif ()
+set(PRJ_SYSTEM_HEADERS_ATTRIBUTE "")
+if (PRJ_SYSTEM_HEADERS)
+  set(PRJ_SYSTEM_HEADERS_ATTRIBUTE SYSTEM)
+endif ()
 
 if(PRJ_BUILD_TESTS)
   message(STATUS "Generating tests")
@@ -222,33 +225,28 @@ endif()
 set(PRJ_DEBUG_POSTFIX "" CACHE STRING "Debug library postfix.")
 
 # ---------------------------------------------------------------------------------------
-# default PRJ_COMPILE_OPTIONS
+# default PRJ_COMPILE_OPTIONS(for C) and PRJ_CXX_COMPILE_OPTIONS(for CXX)
 # ---------------------------------------------------------------------------------------
 # PRJ_WERROR: set 1 to treat warning as error.
 # macro "get_warnings_copts" on CompilerWarnings.cmake
 set(PRJ_COMPILE_OPTIONS "")
 set(PRJ_CXX_COMPILE_OPTIONS "")
 get_warnings_copts(${PRJ_WERROR} PRJ_COMPILE_OPTIONS PRJ_CXX_COMPILE_OPTIONS)
-MESSAGE(STATUS " PRJ_COMPILE_OPTIONS: ${PRJ_COMPILE_OPTIONS} \n PRJ_CXX_COMPILE_OPTIONS=${PRJ_CXX_COMPILE_OPTIONS}\n")
+message(STATUS " PRJ_COMPILE_OPTIONS: ${PRJ_COMPILE_OPTIONS} \n PRJ_CXX_COMPILE_OPTIONS=${PRJ_CXX_COMPILE_OPTIONS}\n")
 
 # import 3rdparty
 #add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/fmt" EXCLUDE_FROM_ALL)
-#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/filesystem" EXCLUDE_FROM_ALL)
-#set(TURBO_SPDLOG_FMT_EXTERNAL ON)
-#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/spdlog" EXCLUDE_FROM_ALL)
 #set(JSON_BuildTests OFF CACHE INTERNAL "")
 #set(JSON_MultipleHeader ON CACHE INTERNAL "")
 #add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/nlohmann-json" EXCLUDE_FROM_ALL)
-#add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mio" EXCLUDE_FROM_ALL)
 #if (NOT ANDROID)
 #    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/abseil-tiny" EXCLUDE_FROM_ALL)
 #endif()
 
-# define "_PRJ_DEPENDENCY_THIRD_ASSETS" and "_PRJ_DEPENDENCY_THIRD_ASSETS"
+# ---------------------------------------------------------------------------------------
+# macros.cmake : define "_PRJ_DEPENDENCY_THIRD_LIBS" and "_PRJ_DEPENDENCY_THIRD_ASSETS"
+# ---------------------------------------------------------------------------------------
 define_dependency_var()
-
-#子模块可以这样引入别的模块头文件， 
-#   模块引入本目录下的 include "current_folder.h"  ; 引入别的模块的 include "src/other_module/other_module.h"
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/")
 

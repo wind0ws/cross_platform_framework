@@ -1,10 +1,14 @@
 
 set(UNIX TRUE CACHE BOOL "")
 SET(CMAKE_SYSTEM_NAME Linux) # this one is important
-SET(CMAKE_SYSTEM_VERSION 1)  # this one not so much
+SET(CMAKE_SYSTEM_PROCESSOR arm)
+SET(CMAKE_SYSTEM_VERSION 1)
 SET(PLATFORM rk3308)
 
-set(CROSS_TOOLCHAIN_PATH_PREFIX "/mnt/d/env/rk3308/rk3308-arm64-glibc-2018.03-toolschain/usr/bin/aarch64-rockchip-linux-gnu-")
+set(CROSS_TOOLCHAIN_DIR "/mnt/d/env/rk3308/rk3308-arm64-glibc-2018.03-toolschain")
+set(CROSS_TOOLCHAIN_PATH_PREFIX "${CROSS_TOOLCHAIN_DIR}/bin/aarch64-rockchip-linux-gnu-")
+
+set(CROSS_SYS_ROOT "${CROSS_TOOLCHAIN_DIR}/aarch64-rockchip-linux-gnu/sysroot")
 
 message(STATUS "Current CROSS_TOOLCHAIN_PATH_PREFIX is => ${CROSS_TOOLCHAIN_PATH_PREFIX}")
 if(("x${CROSS_TOOLCHAIN_PATH_PREFIX}" STREQUAL  "x"))
@@ -24,7 +28,7 @@ set(CMAKE_STRIP "${CROSS_TOOLCHAIN_PATH_PREFIX}strip")
 
 string(APPEND CMAKE_C_FLAGS          " -fPIC -mcpu=cortex-a35+crc+crypto")
 string(APPEND CMAKE_CXX_FLAGS        " -fPIC -mcpu=cortex-a35+crc+crypto")
-string(APPEND CMAKE_EXE_LINKER_FLAGS " -fPIC -fPIE")
+string(APPEND CMAKE_EXE_LINKER_FLAGS " -fPIC -pie -fPIE")
 
 # sysroot location
 #set(MY_SYSROOT "/mnt/d/env/rk3308/rk3308-arm64-glibc-2018.03-toolschain")
@@ -36,8 +40,9 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS " -fPIC -fPIE")
 #set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} --sysroot=${MY_SYSROOT}" CACHE INTERNAL "" FORCE)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --sysroot=${MY_SYSROOT}" CACHE INTERNAL "" FORCE)
 #set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} --sysroot=${MY_SYSROOT}" CACHE INTERNAL "" FORCE)
+
 # cmake built-in settings to use find_xxx() functions
-#set(CMAKE_FIND_ROOT_PATH "${MY_SYSROOT}")
-#set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-#set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-#set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH "${CROSS_SYS_ROOT}")
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

@@ -10,6 +10,14 @@
 #define _STRINGFY(x) #x
 #endif // !_STRINGFY
 
+#ifndef PRJ_REPO_BRANCH
+#define PRJ_REPO_BRANCH "unknown_branch"
+#endif // !PRJ_REPO_BRANCH
+#ifndef PRJ_REPO_REVISION
+#define PRJ_REPO_REVISION "unknown_revision"
+#endif // !PRJ_REPO_REVISION
+
+
 #define _MAKE_VER_MAJOR_STR(x) _STRINGFY(x)
 #define _VER_MAJOR_STR  _MAKE_VER_MAJOR_STR(PRJ_VER_MAJOR)
 #define _MAKE_VER_MINOR_STR(x) _STRINGFY(x)
@@ -18,7 +26,7 @@
 #define _VER_PATCH_STR  _MAKE_VER_MAJOR_STR(PRJ_VER_PATCH)
 
 // version string
-#define PRJ_VERSION _VER_MAJOR_STR "." _VER_MINOR_STR "." _VER_PATCH_STR
+#define PRJ_VERSION _VER_MAJOR_STR "." _VER_MINOR_STR "." _VER_PATCH_STR "." PRJ_REPO_REVISION "@" PRJ_REPO_BRANCH
 // version code
 #define PRJ_VERSION_CODE (PRJ_VER_MAJOR * 10000 + PRJ_VER_MINOR * 100 + PRJ_VER_PATCH)
 

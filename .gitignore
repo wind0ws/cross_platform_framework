@@ -1,9 +1,24 @@
+*.iml
+.gradle
+.svn
+/local.properties
+local.properties
+.externalNativeBuild
+.cxx
 .DS_Store
-cmake-build-debug/
-cmake-build-release/
 .idea/
 .vs/
 .vscode/
+/build
+/captures
+cmake-build-*/
+**/build/cmake-*/
+*.suo
+*.sdf
+*.vcxproj.user
+*.bak
+*.opensdf
+*.ipch
 out/
 tool/backup/
 tool/output/
@@ -11,10 +26,13 @@ tool/out/
 tool/build/
 tool/temp/
 tool/deploy/audio/
-tool/deploy/bin/
-tool/deploy/out/
-tool/deploy/output/
-tool/deploy/temp/
+tool/deploy/archive*/
+tool/deploy/bin*/
+tool/deploy/out*/
+tool/deploy/src*/
+tool/deploy/inc*/
+tool/deploy/doc*/
+tool/deploy/temp*/
 # ignore all sub-dirs and files under res
 tool/deploy/res/*
 # but keep track on res/prj/

@@ -34,6 +34,7 @@
 *.am            text eol=lf
 *.in            text eol=lf
 *.cmake         text eol=lf
+commit-msg      text eol=lf
 Makefile        text eol=lf
 Makefile.win    text eol=lf
 configure       text eol=lf
@@ -74,6 +75,9 @@ configure       text eol=lf
 *.dylib binary  
 *.a binary
 *.o binary  
-*.obj binary 
+*.obj binary
+*.wav binary
+*.mp3 binary
+*.pcm binary 
 # Keep JSON, do not modified 
 *.json binary

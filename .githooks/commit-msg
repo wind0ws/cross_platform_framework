@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
+	echo "Missing argument (commit message). Did you try to run this manually?"
+	exit 1
+fi
+
+commitTitle="$(head -n1 "$1" | tr -d '\r')"
+
+
+# ignore merge requests
+if echo "$commitTitle" | grep -qE "^Merge branch \'"; then
+	echo "Commit hook: ignoring branch merge"
+	exit 0
+fi
+
+# check semantic versioning scheme
+if ! echo "$commitTitle" | grep -qE '^(fake|chore|feat|fix|docs|style|refactor|revert|perf|test)(\([[:alnum:]\-_ ]+\))?:[[:space:]].+$'; then
+	echo -e "\nYour commit title did not follow semantic versioning: $commitTitle"
+	echo -e "\nPlease see doc/Git Commit commit-message-format.md or https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#commit-message-format"
+	echo -e "\nCommit Message Format:\n<type>(<scope>): <subject>\n<BLANK LINE>\n<body>\n<BLANK LINE>\n<footer> \n\n"
+	echo -e "\nSupport type: fake|chore|feat|fix|docs|style|refactor|revert|perf|test \n"
+	echo -e "\nHere are a few examples:\n"
+	echo -e "-------------------------------------- \n"
+	echo -e "revert: revert to v1.0\n\nthis reverts commit <hash>\n"
+	echo -e "-------------------------------------- \n"
+	echo -e "feat(ngMessages): add support for default message\n\nadd support for showing default message when a truthy value is not matched by an ng-message directive.\n\nCloses #12008\nCloses #16587\n"
+	echo -e "-------------------------------------- \n"
+	echo -e "docs(ngAnimate): add \"animating between value changes\" section.\n\nAdd a section which covers use case when users need to animate upon\na variable's value changes (not between two states).\n\nRefers #16561\n\nCloses #16582\n"
+    echo -e "-------------------------------------- "
+	exit 1
+fi

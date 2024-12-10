@@ -1,6 +1,12 @@
 # Get  version from src/version.h and put it in PRJ_VERSION
 function(prj_extract_version)
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h" file_contents)
+  set(version_header_file "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h")
+
+  if(NOT EXISTS "${version_header_file}")
+    message(FATAL_ERROR "can't read version header file: \"${version_header_file}\"")
+  endif()
+
+  file(READ ${version_header_file} file_contents)
   string(REGEX MATCH "PRJ_VER_MAJOR ([0-9]+)" _ "${file_contents}")
 
   if(NOT CMAKE_MATCH_COUNT EQUAL 1)
@@ -32,8 +38,42 @@ endfunction(prj_extract_version)
 
 # define the debug library postfix
 if(NOT DEFINED PRJ_DEBUG_POSTFIX)
-  set(PRJ_DEBUG_POSTFIX d STRING "Debug library postfix.")
+  # set(PRJ_DEBUG_POSTFIX d STRING "Debug library postfix.")
+  set(PRJ_DEBUG_POSTFIX "" CACHE STRING "Debug library postfix.")
 endif()
+
+# show all toolchain version
+function(prj_show_toolchain_version)
+  if (NOT CMAKE_CROSSCOMPILING)
+    message(STATUS "we are only show toolchain version when CMAKE_CROSSCOMPILING.")
+    return()
+  endif()
+
+  set(_ALL_TOOLS
+    ${CMAKE_C_COMPILER}
+    ${CMAKE_CXX_COMPILER}
+    ${CMAKE_LINKER}
+    ${CMAKE_AR}
+    ${CMAKE_RANLIB}
+    ${CMAKE_NM}
+    ${CMAKE_OBJCOPY}
+    ${CMAKE_STRIP}
+  )
+  
+  message(STATUS "\n ============ now try show toolchain version ============ \n")
+  foreach(TOOL ${_ALL_TOOLS})
+    execute_process(COMMAND ${TOOL} --version
+                    OUTPUT_VARIABLE TOOL_VERSION
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    RESULT_VARIABLE TOOL_RESULT)
+    if(NOT TOOL_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to execute ${TOOL} --version")
+    endif()
+    message(STATUS "${TOOL} version: ${TOOL_VERSION}")
+  endforeach()
+  message(STATUS "\n ============ show all toolchain version done ============ \n")
+endfunction(prj_show_toolchain_version)
+
 
 # Turn on warnings on the given target
 function(prj_enable_warnings target_name)
@@ -110,6 +150,17 @@ macro(_setup_vs_params _tgt_name)
     if(NOT DEFINED PRJ_OUTPUT_DIR) # <-- which is deploy dir
       message(FATAL_ERROR "you must defined PRJ_OUTPUT_DIR variable first!")
     endif()
+    set(_all_flags_var
+            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+            )
+    foreach (_item_flag_var ${_all_flags_var})
+        if (${_item_flag_var} MATCHES "/MD")
+            string(REGEX REPLACE "/MD" "/MT" ${_item_flag_var} "${${_item_flag_var}}")
+        endif ()
+    endforeach ()
 
     # message(STATUS " setup vs params for ${_tgt_name}, VS_DEBUGGER_WORKING_DIRECTORY: ${PRJ_OUTPUT_DIR}")
     set_property(TARGET ${_tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -298,6 +349,7 @@ function(prj_cc_library)
       message(STATUS "  detect COPTS not defined, use PRJ_COMPILE_OPTIONS instead.")
       set(PRJ_CC_LIB_COPTS ${PRJ_COMPILE_OPTIONS})
     endif()
+
     if((NOT PRJ_CC_LIB_CCOPTS) AND PRJ_CXX_COMPILE_OPTIONS)
       message(STATUS "  detect CCOPTS not defined, use PRJ_CXX_COMPILE_OPTIONS instead.")
       set(PRJ_CC_LIB_CCOPTS ${PRJ_CXX_COMPILE_OPTIONS})
@@ -348,12 +400,27 @@ function(prj_cc_library)
     endif()
 
     set_target_properties(${_NAME} PROPERTIES
-      VERSION ${PROJECT_VERSION}
       DEBUG_POSTFIX "${PRJ_DEBUG_POSTFIX}")
 
-    # set_target_properties(${_NAME} PROPERTIES
-    # VERSION ${PROJECT_VERSION} SOVERSION ${CPACK_PACKAGE_VERSION_MAJOR}
-    # DEBUG_POSTFIX "${PRJ_DEBUG_POSTFIX}")
+    if(PRJ_ENABLE_SOVERSION)
+      set(_SO_VER 0)
+
+      if(DEFINED PRJ_VERSION_MAJOR)
+        set(_SO_VER ${PRJ_VERSION_MAJOR})
+      endif()
+
+      set_target_properties(${_NAME} PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${_SO_VER}
+        OUTPUT_NAME ${_NAME})
+      
+      # if ((NOT CYGWIN) AND UNIX AND (_lib_type STREQUAL "SHARED"))
+      #   set(_GENERATE_SO_NAME "${CMAKE_SHARED_LIBRARY_PREFIX}${_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+      #   message(STATUS "_GENERATE_SO_NAME=${_GENERATE_SO_NAME}")
+      #   set_target_properties(${_NAME} PROPERTIES LINK_FLAGS "-Wl,-soname,${_GENERATE_SO_NAME}")
+      # endif()
+    endif(PRJ_ENABLE_SOVERSION)
+
     message(STATUS "target: ${_NAME} ${_lib_type}")
 
   else()
@@ -449,14 +516,13 @@ function(prj_cc_test)
     PRIVATE ${GMOCK_INCLUDE_DIRS} ${GTEST_INCLUDE_DIRS}
   )
 
-  target_compile_definitions(${_NAME}
-    PUBLIC
-    ${PRJ_CC_TEST_DEFINES}
-  )
+  if(PRJ_CC_TEST_DEFINES)
+    target_compile_definitions(${_NAME} PUBLIC ${PRJ_CC_TEST_DEFINES})
+  endif()
 
-  target_compile_options(${_NAME}
-    PRIVATE ${PRJ_CC_TEST_COPTS}
-  )
+  if(PRJ_CC_TEST_COPTS)
+    target_compile_options(${_NAME} PRIVATE ${PRJ_CC_TEST_COPTS})
+  endif()
 
   if(PRJ_SANITIZE_ADDRESS)
     prj_enable_sanitizer(${_NAME})

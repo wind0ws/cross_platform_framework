@@ -2,11 +2,6 @@
 MACRO(get_git_hash _git_hash _work_dir)
   find_package(Git QUIET)
   if(GIT_FOUND)
-	  #execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
-	  #	WORKING_DIRECTORY ${_work_dir}
-	  #	OUTPUT_VARIABLE  ${_git_hash}
-	  #	OUTPUT_STRIP_TRAILING_WHITESPACE
-	  #)
     execute_process(
         COMMAND ${GIT_EXECUTABLE} log -1 --pretty=format:%h
         OUTPUT_VARIABLE ${_git_hash}
@@ -14,7 +9,7 @@ MACRO(get_git_hash _git_hash _work_dir)
         ERROR_QUIET
         WORKING_DIRECTORY ${_work_dir}
       )
-	  #message(STATUS "Git found!!! git_hash=${_git_hash}, work_dir=>${_work_dir}")	
+	  # message(STATUS "Git found!!! git_hash=${_git_hash}, work_dir=\"${_work_dir}\"")	
 	else()
 	  message(STATUS "Git not found! can't get_git_hash")
   endif()
@@ -31,12 +26,31 @@ MACRO(get_git_branch _git_branch _work_dir)
       ERROR_QUIET
       WORKING_DIRECTORY ${_work_dir}
       )
-	  #message(STATUS "Git found!!! git_branch=${_git_branch}, work_dir=>${_work_dir}")	
+	  # message(STATUS "Git found!!! git_branch=${_git_branch}, work_dir=\"${_work_dir}\"")	
 	else()
 	  message(STATUS "Git not found! can't get_git_branch")
   endif()
 ENDMACRO(get_git_branch)
 
+#
+# setup repo info: PRJ_REPO_BRANCH and PRJ_REPO_REVISION,
+# and also add repo info to the compile definitions
+#
+macro(prj_setup_repo_info _work_dir)
+  if (NOT PRJ_REPO_BRANCH)
+    set(PRJ_REPO_BRANCH "unknown")
+    get_git_branch(PRJ_REPO_BRANCH ${_work_dir})
+  endif()
+  if (NOT PRJ_REPO_REVISION)
+    set(PRJ_REPO_REVISION "unknown")
+    get_git_hash(PRJ_REPO_REVISION ${_work_dir})
+  endif()
+  message(STATUS "repo info: branch=${PRJ_REPO_BRANCH}, revision=${PRJ_REPO_REVISION}")
+  add_compile_definitions(
+    PRJ_REPO_BRANCH="${PRJ_REPO_BRANCH}"
+    PRJ_REPO_REVISION="${PRJ_REPO_REVISION}"
+  )
+endmacro(prj_setup_repo_info)
 
 #扫描指定scan_dir 目录及其子目录下的 .h 文件所在目录，存放到 return_list 中
 MACRO(scan_header_dirs _scan_dir _return_list)
@@ -194,18 +208,18 @@ endmacro(remove_flag_from_file)
 
 #
 # set local and parent scopes var.
-# make it effective in both parent and local scopes.
+# make it effective in both local and parent scopes.
 #
 #   _var:   name of variable
 #   _value: value of variable
 #
 macro(set_local_and_parent_scopes_var _var _value)
-    set(${_var} ${_value})
-    set(${_var} ${_value} PARENT_SCOPE)
+  set(${_var} ${_value})
+  set(${_var} ${_value} PARENT_SCOPE)
 endmacro()
 
 #
-# define_dependency_var: define _PRJ_DEPENDENCY_THIRD_ASSETS and _PRJ_DEPENDENCY_THIRD_ASSETS var for project
+# define_dependency_var: define _PRJ_DEPENDENCY_THIRD_LIBS and _PRJ_DEPENDENCY_THIRD_ASSETS var for project
 #
 macro(define_dependency_var)
   if ((DEFINED _PRJ_DEPENDENCY_THIRD_LIBS) OR (DEFINED _PRJ_DEPENDENCY_THIRD_ASSETS))
@@ -301,29 +315,26 @@ endmacro(lookup_lib_in_dir)
 
 #
 # get_lib_prefix_suffix: get lib name prefix.
-# _shared: ON for shared lib, OFF for static lib 
+#   _shared: ON for shared lib, OFF for static lib 
 #
 macro(get_lib_prefix_suffix _shared)
-  if(MSVC)
-    set(_LIB_PREFIX "")
-    #if(${_shared})
-    #  set(_LIB_SUFFIX ".dll")
-    #else()
-      set(_LIB_SUFFIX ".lib") # windows 动态库也是使用对应的 "库名.lib" 来依赖导入dll的。dll不能传给linker，否则报错LNK1107
-    #endif()
-  else() # <-- to do: maybe need to add support for iOS/MacOS(dylib/tbd)
-    set(_LIB_PREFIX "lib")
-    if(${_shared})
-      set(_LIB_SUFFIX ".so")
-    else()
-      set(_LIB_SUFFIX ".a")
-    endif()
-  endif()
+  if(${_shared})
+    set(_LIB_PREFIX ${CMAKE_SHARED_LIBRARY_PREFIX})
+    set(_LIB_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
+    if(MSVC)
+      # 这里重写 _LIB_SUFFIX: 因为 windows 动态库也是使用对应的 "库名.lib" 来依赖导入dll的。
+      # dll不能直接传给linker, 否则报错 LNK1107. 在运行目录下放置对应的dll即可在运行时自动加载.
+      set(_LIB_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX}) 
+    endif(MSVC)
+  else()
+    set(_LIB_PREFIX ${CMAKE_STATIC_LIBRARY_PREFIX})
+    set(_LIB_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX})
+  endif(${_shared})
 endmacro(get_lib_prefix_suffix)
 
 #
 # standardization_lib_name: for remove suffix of "_a" if it has.
-# _name_var: the variable of name.
+#   _name_var: the variable of name.
 #
 macro(standardization_lib_name _name_var)
   # 标准化库名称变量名，去除 "_a" 这种后缀

@@ -5,22 +5,26 @@
 > 以curl为例：放置的结构目录应如下：
   - curl 
     - asset
-	  - xxx.cert
-	- include
-	  - curl.h
-	- lib
-	  - android
-	    - armeabi-v7a_release
-	    - arm64-v8a_release
-	  - linux
-	    - x64_release
-	  - windows
-	    - x32_debug
-		- x32_release
-		- x64_debug
-		- x64_release
-	  - rk3308
-	    - x64_release
+        - xxx.cert
+      - include
+        - curl.h
+      - lib
+        - android
+          - armeabi-v7a_release
+          - arm64-v8a_release
+          - x86_release
+          - x64_release
+        - linux
+          - x64_release
+        - windows
+          - x32_debug
+          - x32_release
+          - x64_debug
+          - x64_release
+        - rk3308
+          - x64_release
+        - r328
+          - x32_release
 
 ## 1. 头文件 存放规则： 放入以下文件夹: *库名文件夹/include*
 ## 2. 资源 存放规则： 放入以下文件夹: *库名文件夹/asset*
@@ -31,21 +35,23 @@
       > 例如: 放置 curl 库到 android armeabi-v7a release下，
        那么应该把 libcurl.a 拷贝到： `android/armeabi-v7a_release/` 这里即可。
        同理，如果有动态库（libcurl.so）也同样拷贝到对应的结构目录下。
-	   
+       
    2. 对于android和windows平台，由于ANDROID_STL和vs版本不同也会导致编译冲突报错，故建议放置对应的.  
-    2.1 android 默认编译使用的stl是**c++_static**, 若不是此STL，则需要编译对应的stl的库放入指定文件夹。
-        > 例如放置arm64-v8a的gnustl_static的curl库，那么debug库应该放在 `android/arm64-v8a_debug_gnustl_static/`，
-         release库应放在 `android/arm64-v8a_release_gnustl_static/`
-    2.2 windows 目录下默认不带 *_vs20xx* 版本的库为兜底库，默认为vs2015编译，若不存在你在用的vs版本的库可能编译会冲突报错，故建议编译你在用的vs版本库。
-       > 兜底库采用的是vs2015编译的，也就是文件夹没有标记vs版本的即是vs2015编译的。
+    2.1 android 默认编译使用的stl是**c++_static**, 若要支持其他STL，则需要编译对应的stl的库放入指定文件夹。
+        > 例如放置arm64-v8a的**gnustl_static**的curl库，那么debug库应该放在 `android/arm64-v8a_debug_gnustl_static/`，
+          release库应放在 `android/arm64-v8a_release_gnustl_static/`
+    2.2 windows 目录下默认不带 *_vs20xx* 版本的库为兜底库，默认为vs2015编译，若不存在你编译的vs版本的库可能编译会冲突报错，故建议编译你在用的vs版本库。
+       > 兜底库采用的是vs2015编译的，也就是文件夹没有标记vs版本的即是vs2015编译的（比如 **x32_release**  **x64_release**）。
          对于那些没有用特定vs版本编译的库统一用兜底库。
 
          风险点： 由于兜底库和你正在用的vs版本可能不同，那么可能会导致编译冲突报错，
-                  出现这样的问题那么有两种解决办法：
-                  1. 你装兜底库对应的vs版本，并用这个版本编译;
+                  出现这样的问题那么有以下几种解决办法：
+                  1. 安装兜底库对应的vs版本(vs2015)，并用这个版本编译项目;
                   2. 找到你需要的库源码，用你在用的vs版本编译出来放到指定文件夹。
-                     例如你用的是vs2017，准备编译x32平台，那么请至少编译release版本的库放在 x32_release_vs2017 文件夹下.
+                     例如：你用的是vs2017，准备编译x32平台，那么请至少编译release版本的库放在 x32_release_vs2017 文件夹下.
                      当然你顺手把 debug/minsizerel/relwithdebinfo 等模式编译了更好。
+                  3. windows第三方库编译成 dll+导入库的形式，例如 curl.dll+curl.lib 这种搭配，
+                     这样即使只有release库，项目采用debug模式依赖编译他都可以编的过。
 
 
 
@@ -59,7 +65,7 @@
   
   > 接上述"库文件 存放规则"说明，对于android/windows，还会优先查找对应ANDROID_STL和vs版本文件夹下的库，
     如果不存在会回退到不带特殊版本标记的文件夹，如果都找不到则报错。
-	
+    
     1. 示例1: 查找 rk3308 x64 debug 的curl库，那么脚本会按照下述文件夹顺序去找，都找不到则报错。
        1. *lib/rk3308/x64_debug/*
        2. *lib/rk3308/x64_release/*

@@ -1,6 +1,8 @@
 *.iml
 .gradle
 .svn
+#ignore temp doc
+~$*.doc*
 /local.properties
 local.properties
 .externalNativeBuild
@@ -25,6 +27,7 @@ tool/output/
 tool/out/
 tool/build/
 tool/temp/
+tool/deploy/*.pcm
 tool/deploy/audio/
 tool/deploy/archive*/
 tool/deploy/bin*/

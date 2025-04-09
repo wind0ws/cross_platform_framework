@@ -10,7 +10,7 @@ dir /b /a:d "%BUILD_FOLDER%"
 
 for /d %%G in ("%BUILD_FOLDER%") do rd /s /q "%%~G"
 
-@echo.
+echo.
 @echo "cleanup %BUILD_FOLDER%\build_* folder complete, bye bye..."
 
 ping 127.1 -n 4 >nul

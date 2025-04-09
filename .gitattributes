@@ -38,6 +38,7 @@ commit-msg      text eol=lf
 Makefile        text eol=lf
 Makefile.win    text eol=lf
 configure       text eol=lf
+gradlew         text eol=lf
 *.bat           text eol=crlf
 *.cmd           text eol=crlf
 

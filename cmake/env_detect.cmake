@@ -80,10 +80,10 @@ function(CheckForLinuxPlatform)
     MESSAGE(STATUS "CMAKE_SIZEOF_VOID_P  = " ${CMAKE_SIZEOF_VOID_P})
 
     IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        MESSAGE(STATUS "current platform: Linux  64")
+        MESSAGE(STATUS "current platform: Linux x64")
 
         IF(PLATFORM_ABI MATCHES "x86")
-            MESSAGE(STATUS "build 32 bit lib in 64 os system")
+            MESSAGE(STATUS "build x32 bit lib in x64 os system")
 
             SET(COMMON_FLAG "${COMMON_FLAG} -m32")
             add_compile_options(-m32)
@@ -104,7 +104,7 @@ function(CheckForLinuxPlatform)
         SET(COMMON_FLAG "${COMMON_FLAG} -Os")
     endif()
 
-    SET(LINK_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../libs/linux/${PLATFORM_ABI} PARENT_SCOPE)
+    #SET(LINK_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../libs/linux/${PLATFORM_ABI} PARENT_SCOPE)
 
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--exclude-libs,ALL")
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--unresolved-symbols=ignore-in-shared-libs")

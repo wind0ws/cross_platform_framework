@@ -1,3 +1,9 @@
+::
+:: usage:     make_windows.bat <arch> <build_type> "vs_version" <cmake_extend_args>
+::    sample: make_windows.bat Win32 Release "Visual Studio 14 2015" "-DFRONTEND_DIR_NAME=xxx -DBACKEND_DIR_NAME=yyy -DENABLE_WAKE_WORD_EVALUATOR=0"
+::            make_windows.bat Win64 Debug "Visual Studio 14 2015 Win64" "-DFRONTEND_DIR_NAME=xxx -DBACKEND_DIR_NAME=yyy -DENABLE_WAKE_WORD_EVALUATOR=0"
+::            make_windows.bat Win64 Debug "Visual Studio 14 2022" "-DFRONTEND_DIR_NAME=xxx -DBACKEND_DIR_NAME=yyy -DENABLE_WAKE_WORD_EVALUATOR=0"
+
 call setup_env.bat %*
 if %ERRORLEVEL% NEQ 0 (
   @echo error on setup_env, check it.

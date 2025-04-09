@@ -226,9 +226,9 @@ macro(define_dependency_var)
     message(FATAL_ERROR "you are already defined \"_PRJ_DEPENDENCY_THIRD_LIBS\" OR \"_PRJ_DEPENDENCY_THIRD_ASSETS\"")
   endif()
   # ---------------------------------------------------------------------------------------
-  # 初始化第三方库依赖列表和依赖资源列表， 后面自行查找的第三方库会被加入到此表中，
-  # 最后把这些3方库拷贝到deploy下的运行目录。
-  # 这两个变量会在 macros.cmake 中的 find_lib 中追加赋值。
+  # 初始化第三方库依赖列表和依赖资源列表, 后面自行查找的第三方库会被加入到此表中,
+  # 最后把这些 第3方库 拷贝到 deploy下的 bin 运行目录中。
+  # 这两个变量会在 macros.cmake 中的 find_lib 中被追加。
   # ---------------------------------------------------------------------------------------
   set(_PRJ_DEPENDENCY_THIRD_LIBS "")
   set(_PRJ_DEPENDENCY_THIRD_ASSETS "")
@@ -475,7 +475,7 @@ macro(check_third_party_dir)
     if (NOT DEFINED PRJ_SOURCE_DIR)
       message(FATAL_ERROR "you must define \"PRJ_SOURCE_DIR\" first!" )
     endif()
-    # 全局缓存third_party路径
+    # 全局缓存 third_party 路径
     set(PRJ_THIRD_PARTY_DIR "${PRJ_SOURCE_DIR}/src/third_party" CACHE STRING "")
     if (NOT EXISTS "${PRJ_THIRD_PARTY_DIR}")
       message(FATAL_ERROR "PRJ_THIRD_PARTY_DIR(\"${PRJ_THIRD_PARTY_DIR}\") not exists!")
@@ -500,31 +500,37 @@ macro(prepend_dir _suffix _relative_dir_list)
 endmacro(prepend_dir)
 
 #
-# lookup_vs_name: detect your vs version and store vs20xx to "_vs_name"
+# detect_visual_studio_version: detect your vs version and store vs20xx to "_vs_name"
 #
-macro(lookup_vs_name)
+macro(detect_visual_studio_version)
   if (MSVC AND ("x${_vs_name}" STREQUAL "x")) # <-- 只查找一次
     set(_vs_name "")
     message(STATUS "  detected your MSVC_VERSION=${MSVC_VERSION}")
-    if(${MSVC_VERSION} GREATER_EQUAL 1940)      # maybe VS 2024 (version 18.x)
+    if(${MSVC_VERSION} GREATER_EQUAL 1945)      # maybe VS 2024 (version 18.x): 1945~xxxx
        message(FATAL_ERROR "maybe Visual Studio 2024 or newer, should setup vs_name for this version!")
-    elseif(${MSVC_VERSION} GREATER_EQUAL 1930)  # VS 2022 (version 17.x)
+    elseif(${MSVC_VERSION} GREATER_EQUAL 1930)  # VS 2022 (version 17.x): 1930~1944
        message(STATUS "Using Visual Studio 2022")
        set(_vs_name "vs2022")
-    elseif(${MSVC_VERSION} GREATER_EQUAL 1920)  # VS 2019 (version 16.x)
+    elseif(${MSVC_VERSION} GREATER_EQUAL 1920)  # VS 2019 (version 16.x): 1920~1929
       message(STATUS "Using Visual Studio 2019")
       set(_vs_name "vs2019")
-    elseif(${MSVC_VERSION} EQUAL 1910)          # VS 2017 (version 15.x)
+    elseif(${MSVC_VERSION} EQUAL 1910)          # VS 2017 (version 15.x): 1910~1919
       message(STATUS "Using Visual Studio 2017")
       set(_vs_name "vs2017")
-    elseif(${MSVC_VERSION} EQUAL 1900)          # VS 2015 (version 14.x)
+    elseif(${MSVC_VERSION} EQUAL 1900)          # VS 2015 (version 14.x): 1900~1909
       message(STATUS "Using Visual Studio 2015")
       set(_vs_name "vs2015")
+    elseif(${MSVC_VERSION} EQUAL 1800)          # VS 2013 (version 12.x): 1800~1899
+      message(STATUS "Using Visual Studio 2013")
+      set(_vs_name "vs2013")
+    elseif(${MSVC_VERSION} EQUAL 1700)          # VS 2012 (version 11.x): 1700~1799
+      message(STATUS "Using Visual Studio 2012")
+      set(_vs_name "vs2012")
     else()
-      message(FATAL_ERROR "Using an unknown Visual Studio version")
+      message(FATAL_ERROR "Using an unknown Visual Studio version(${MSVC_VERSION})")
     endif()
   endif()
-endmacro(lookup_vs_name)
+endmacro(detect_visual_studio_version)
 
 #
 # find_lib_easy: helper for find_lib. 
@@ -546,7 +552,7 @@ macro(find_lib_easy _lib_name _shared _lib_package_dir)
     standardization_lib_name(_lib_name)
     set(_lib_package_dir "${PRJ_THIRD_PARTY_DIR}/${_lib_name}")
   elseif(NOT EXISTS "${_lib_package_dir}")
-    message(FATAL_ERROR "_lib_package_dir not exists! check it: \"${_lib_package_dir}\"")
+    message(FATAL_ERROR " \"${_lib_package_dir}\" not exists! check it.")
   endif()
   
   set(_relative_dirs "lib/${PLATFORM_TOLOWER}/${PLATFORM_ABI_TOLOWER}_${CMAKE_BUILD_TYPE_TOLOWER}")
@@ -561,11 +567,11 @@ macro(find_lib_easy _lib_name _shared _lib_package_dir)
   endif()
   # msvc 平台优先查找指定vs版本文件夹. 例如 x32_debug_vs2022
   if(MSVC)
-    lookup_vs_name()
+    detect_visual_studio_version()
     prepend_dir(${_vs_name} _relative_dirs)
   endif(MSVC)
 
-  message(STATUS "\"${_lib_name}\" will lookup relative_dir: ${_relative_dirs}")
+  message(STATUS "\"${_lib_name}\" will lookup in relative_dir: ${_relative_dirs}")
   find_lib(${_lib_name} ${_shared} ${_lib_package_dir} _relative_dirs)
 endmacro(find_lib_easy)
 

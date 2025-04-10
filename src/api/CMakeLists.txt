@@ -6,7 +6,7 @@ prj_cc_library(
   HDRS
     #${HEADERS}
   SRCS
-    "my_api.c" 
+    "my_api.cpp" 
     "my_api_legacy.c"
   COPTS
     # ${PRJ_COMPILE_OPTIONS}

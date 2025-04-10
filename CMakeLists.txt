@@ -152,13 +152,22 @@ if(PRJ_BUILD_PIC)
 endif()
 
 # ---------------------------------------------------------------------------------------
+# CMAKE_C_VISIBILITY_PRESET , setup visibility for C symbols
 # CMAKE_CXX_VISIBILITY_PRESET , setup visibility for C++ symbols
 # ---------------------------------------------------------------------------------------
-if (PRJ_MASTER_PROJECT AND NOT DEFINED CMAKE_CXX_VISIBILITY_PRESET)
-  set_verbose(CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING
-              "Preset for the export of private symbols")
-  set_property(CACHE CMAKE_CXX_VISIBILITY_PRESET PROPERTY STRINGS
-               hidden default)
+if (PRJ_MASTER_PROJECT)
+  if (NOT DEFINED CMAKE_C_VISIBILITY_PRESET)
+    set_verbose(CMAKE_C_VISIBILITY_PRESET hidden CACHE STRING
+                "Preset for the export c of private symbols")
+    set_property(CACHE CMAKE_C_VISIBILITY_PRESET PROPERTY STRINGS
+                 hidden default)
+  endif()
+  if (NOT DEFINED CMAKE_CXX_VISIBILITY_PRESET)
+    set_verbose(CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING
+                "Preset for the export cxx of private symbols")
+    set_property(CACHE CMAKE_CXX_VISIBILITY_PRESET PROPERTY STRINGS
+                 hidden default)
+  endif()
 endif ()
 
 # ---------------------------------------------------------------------------------------

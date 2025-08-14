@@ -1,5 +1,5 @@
 
-#include "common.h"
+#include "my_common.h"
 #define LOG_TAG "COMMON_TEST"
 #include "my_logger.h"
 #include <stdio.h>

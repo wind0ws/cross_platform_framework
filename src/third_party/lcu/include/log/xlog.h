@@ -230,17 +230,17 @@ extern "C" {
 // better 'define LOG_TAG "xxx"' before include "xlog.h"
 // if not, we use default TAG, which you called on xlog_set_default_tag
 #ifndef LOG_TAG
-#define LOG_TAG  NULL
+#define LOG_TAG  _LOG_NULL
 #endif // !LOG_TAG
 #ifndef _LOG_TAG
 #define _LOG_TAG LOG_TAG
 #endif // !_LOG_TAG
 
-#define TLOGV(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_VERBOSE, tag, NULL, 0, fmt, ##__VA_ARGS__)
-#define TLOGD(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_DEBUG, tag, NULL, 0, fmt, ##__VA_ARGS__)
-#define TLOGI(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_INFO, tag, NULL, 0, fmt, ##__VA_ARGS__)
-#define TLOGW(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_WARN, tag, NULL, 0, fmt, ##__VA_ARGS__)
-#define TLOGE(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_ERROR, tag, NULL, 0, fmt, ##__VA_ARGS__)
+#define TLOGV(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_VERBOSE, tag, _LOG_NULL, 0, fmt, ##__VA_ARGS__)
+#define TLOGD(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_DEBUG, tag, _LOG_NULL, 0, fmt, ##__VA_ARGS__)
+#define TLOGI(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_INFO, tag, _LOG_NULL, 0, fmt, ##__VA_ARGS__)
+#define TLOGW(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_WARN, tag, _LOG_NULL, 0, fmt, ##__VA_ARGS__)
+#define TLOGE(tag, fmt, ...) __xlog_internal_print(LOG_LEVEL_ERROR, tag, _LOG_NULL, 0, fmt, ##__VA_ARGS__)
 
 #define LOGV(fmt, ...) TLOGV(_LOG_TAG, fmt, ##__VA_ARGS__)
 #define LOGD(fmt, ...) TLOGD(_LOG_TAG, fmt, ##__VA_ARGS__)

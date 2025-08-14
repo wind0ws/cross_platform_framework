@@ -1,11 +1,11 @@
 
 set(UNIX TRUE CACHE BOOL "")
-SET(CMAKE_SYSTEM_NAME Linux) # this one is important
-SET(CMAKE_SYSTEM_PROCESSOR arm)
-SET(CMAKE_SYSTEM_VERSION 1)
-SET(PLATFORM rk3308)
+set(CMAKE_SYSTEM_NAME Linux) # this one is important
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_SYSTEM_VERSION 1)
+set(PLATFORM rk3308)
 
-set(CROSS_TOOLCHAIN_DIR "/mnt/d/env/rk3308/rk3308-arm64-glibc-2018.03-toolschain")
+set(CROSS_TOOLCHAIN_DIR "/mnt/d/env/toolchains/rk3308/rk3308-arm64-glibc-2018.03-toolschain")
 set(CROSS_TOOLCHAIN_PATH_PREFIX "${CROSS_TOOLCHAIN_DIR}/bin/aarch64-rockchip-linux-gnu-")
 
 set(CROSS_SYS_ROOT "${CROSS_TOOLCHAIN_DIR}/aarch64-rockchip-linux-gnu/sysroot")

@@ -1,8 +1,15 @@
 #!/bin/bash
 # Attention: Unix sh file shouldn't use CR LF, just use LF
-# use dos2unix to transform it
 
-dos2unix setup_env.sh
+# use dos2unix to transform it
+DOS2UNIX=dos2unix
+$DOS2UNIX -V > /dev/null 2>&1
+ERR_CODE=$?
+if [ $ERR_CODE -eq 0 ];then
+    $DOS2UNIX setup_env.sh
+else
+    echo "$DOS2UNIX not exists. you should install it by \"apt install dos2unix\""
+fi
 chmod +x ./setup_env.sh
 source ./setup_env.sh 
 

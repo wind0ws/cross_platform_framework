@@ -3,6 +3,8 @@
 .svn
 #ignore temp doc
 ~$*.doc*
+~$*.xls*
+~$*.ppt*
 /local.properties
 local.properties
 .externalNativeBuild
@@ -11,8 +13,13 @@ local.properties
 .idea/
 .vs/
 .vscode/
+.kotlin/
+.temp/
+.tmp/
+__pycache__/
 /build
 /captures
+CMakeFiles
 cmake-build-*/
 **/build/cmake-*/
 *.suo
@@ -38,5 +45,7 @@ tool/deploy/doc*/
 tool/deploy/temp*/
 # ignore all sub-dirs and files under res
 tool/deploy/res/*
+# ignore generated license file.
+device_license.dat
 # but keep track on res/prj/
 !/tool/deploy/res/prj/

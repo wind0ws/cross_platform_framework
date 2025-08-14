@@ -1,14 +1,14 @@
 
 set(UNIX TRUE CACHE BOOL "")
 set(CMAKE_SYSTEM_NAME Linux)
-SET(CMAKE_SYSTEM_VERSION 1)  # this one not so much
+set(CMAKE_SYSTEM_VERSION 1)  # this one not so much
 set(PLATFORM r328)
 
 #R328 STAGING_DIR. (required by toolchain gcc)
 #set(ENV{STAGING_DIR} "/mnt/d/env/r328/sdk_target")
 #message("STAGING_DIR: $ENV{STAGING_DIR}")
 
-set(CROSS_TOOLCHAIN_DIR "/mnt/d/env/r328/toolchain-sunxi-musl/toolchain")
+set(CROSS_TOOLCHAIN_DIR "/mnt/d/env/toolchains/r328/toolchain-sunxi-musl/toolchain")
 set(CROSS_TOOLCHAIN_PATH_PREFIX "${CROSS_TOOLCHAIN_DIR}/bin/arm-openwrt-linux-")
 
 set(CROSS_SYS_ROOT "${CROSS_TOOLCHAIN_DIR}/../../sdk_target")

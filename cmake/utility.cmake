@@ -38,13 +38,12 @@ endfunction(prj_extract_version)
 
 # define the debug library postfix
 if(NOT DEFINED PRJ_DEBUG_POSTFIX)
-  # set(PRJ_DEBUG_POSTFIX d STRING "Debug library postfix.")
   set(PRJ_DEBUG_POSTFIX "" CACHE STRING "Debug library postfix.")
 endif()
 
 # show all toolchain version
 function(prj_show_toolchain_version)
-  if (NOT CMAKE_CROSSCOMPILING)
+  if(NOT CMAKE_CROSSCOMPILING)
     message(STATUS "we are only show toolchain version when CMAKE_CROSSCOMPILING.")
     return()
   endif()
@@ -59,21 +58,24 @@ function(prj_show_toolchain_version)
     ${CMAKE_OBJCOPY}
     ${CMAKE_STRIP}
   )
-  
+
   message(STATUS "\n ============ now try show toolchain version ============ \n")
+
   foreach(TOOL ${_ALL_TOOLS})
     execute_process(COMMAND ${TOOL} --version
-                    OUTPUT_VARIABLE TOOL_VERSION
-                    OUTPUT_STRIP_TRAILING_WHITESPACE
-                    RESULT_VARIABLE TOOL_RESULT)
+      OUTPUT_VARIABLE TOOL_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE TOOL_RESULT)
+
     if(NOT TOOL_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to execute ${TOOL} --version")
+      message(FATAL_ERROR "Failed to execute ${TOOL} --version")
     endif()
+
     message(STATUS "${TOOL} version: ${TOOL_VERSION}")
   endforeach()
+
   message(STATUS "\n ============ show all toolchain version done ============ \n")
 endfunction(prj_show_toolchain_version)
-
 
 # Turn on warnings on the given target
 function(prj_enable_warnings target_name)
@@ -84,7 +86,7 @@ function(prj_enable_warnings target_name)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     list(APPEND MSVC_OPTIONS "/W3")
 
-    if(MSVC_VERSION GREATER 1900) # Allow non fatal security warnings for msvc 2015
+    if(MSVC_VERSION VERSION_GREATER 1900) # Allow non fatal security warnings for msvc 2015
       list(APPEND MSVC_OPTIONS "/WX")
     endif()
   endif()
@@ -101,20 +103,117 @@ function(prj_enable_warnings target_name)
     $<$<CXX_COMPILER_ID:MSVC>:${MSVC_OPTIONS}>)
 endfunction(prj_enable_warnings)
 
-# Enable address sanitizer (gcc/clang only)
-function(prj_enable_sanitizer target_name)
-  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    message(FATAL_ERROR "sanitizer supported only for gcc/clang")
+# copy asan dll for ${target_name} in msvc
+function(_msvc_auto_copy_asan_dll target_name)
+  if(NOT MSVC)
+    message(FATAL_ERROR "this function only for MSVC compiler")
+    return()
   endif()
 
-  message(STATUS "address sanitizer enabled for \"${target_name}\"")
-  target_compile_options(${target_name} PRIVATE -fsanitize=address,undefined)
-  target_compile_options(${target_name} PRIVATE -fno-sanitize=signed-integer-overflow)
-  target_compile_options(${target_name} PRIVATE -fno-sanitize-recover=all)
-  target_compile_options(${target_name} PRIVATE -fno-omit-frame-pointer)
-  target_link_libraries(${target_name} PRIVATE -fsanitize=address,undefined)
+  # 自动查找并复制 ASan DLL 到输出目录
+  get_filename_component(VC_COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
 
-  # target_link_libraries(${target_name} PRIVATE -fsanitize=address,undefined -fuse-ld=gold)
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8) # 64位系统
+    set(ASAN_DLL_NAME "clang_rt.asan_dynamic-x86_64.dll")
+  else() # 32位系统
+    set(ASAN_DLL_NAME "clang_rt.asan_dynamic-i386.dll")
+  endif()
+
+  set(ASAN_DLL_PATH "${VC_COMPILER_DIR}/${ASAN_DLL_NAME}")
+
+  if(EXISTS "${ASAN_DLL_PATH}")
+    add_custom_command(TARGET ${target_name} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${ASAN_DLL_PATH}"
+      "$<TARGET_FILE_DIR:${target_name}>"
+      COMMENT "Copying ASan DLL to output directory"
+    )
+  else()
+    message(WARNING "ASan DLL not found at ${ASAN_DLL_PATH}")
+  endif()
+endfunction(_msvc_auto_copy_asan_dll target_name)
+
+# 获取Android NDK主版本号
+macro(_get_ndk_major_version ndk_major_ver)
+  if(NOT ANDROID)
+    message(FATAL_ERROR "this macro only for android NDK")
+  endif()
+
+  # 在全局作用域缓存NDK主版本号
+  if(NOT DEFINED PRJ_NDK_MAJOR_VERSION_CACHED)
+    if(DEFINED CMAKE_ANDROID_NDK_VERSION)
+      string(REGEX MATCH "^([0-9]+)" _match_result "${CMAKE_ANDROID_NDK_VERSION}")
+
+      if(_match_result)
+        set(PRJ_NDK_MAJOR_VERSION_CACHED "${CMAKE_MATCH_1}" CACHE INTERNAL "Cached NDK major version")
+      else()
+        set(PRJ_NDK_MAJOR_VERSION_CACHED "16" CACHE INTERNAL "Cached NDK major version (default)")
+      endif()
+    else()
+      set(PRJ_NDK_MAJOR_VERSION_CACHED "16" CACHE INTERNAL "Cached NDK major version (default)")
+    endif()
+  endif()
+
+  set(${ndk_major_ver} ${PRJ_NDK_MAJOR_VERSION_CACHED})
+endmacro(_get_ndk_major_version)
+
+function(prj_enable_sanitizer target_name)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|MSVC")
+    message(FATAL_ERROR "ASan supported only for gcc/clang/msvc")
+  endif()
+
+  if(MSVC AND("${MSVC_VERSION}" VERSION_LESS "1929"))
+    message(STATUS "ASan begin supported from msvc 2019(16.9), but yours MSVC_VERSION=${MSVC_VERSION}, so disabled ASan.")
+    return()
+  endif()
+
+  ## 如果你用到某个第三方库, 且 ASan 报了一些错误你没法修正, 可以对特定源文件关闭 ASan(sanitizer) vptr 检测.
+  ## set_source_files_properties(${_SRC_DIR}/xxx_api_wrapper.cpp PROPERTIES COMPILE_FLAGS "-fno-sanitize=vptr")
+  
+  message(STATUS " ASan enabled for \"${target_name}\"")
+
+  if(MSVC)
+    # 注释不要写在内部行后面
+    #  Oy- 等效于 -fno-omit-frame-pointer
+    target_compile_options(${target_name} PRIVATE
+      /fsanitize=address
+      /Oy-
+    )
+    # 1. 这里的 fsanitize:address 而不是 fsanitize=address
+    # 2. /INFERASANLIBS 是自动推断 ASANLib 位置
+    # 3. /INCREMENTAL:NO 是禁用增量链接, ASan不支持
+    # 4. /NODEFAULTLIB:LIBCMT # <-- 不能加这个参数, 加了ASan会失效, 可以 ignore:4098
+    target_link_options(${target_name} PRIVATE
+      /fsanitize:address
+      /INFERASANLIBS
+      /INCREMENTAL:NO
+    )
+    _msvc_auto_copy_asan_dll(${target_name})
+  else()
+    set(_NDK_MAJOR_VERSION 16) # <-- 非Android平台设置多少都无所谓, 只有Android平台才会读这个
+
+    if(ANDROID)
+      _get_ndk_major_version(_NDK_MAJOR_VERSION)
+    endif()
+
+    if(ANDROID AND _NDK_MAJOR_VERSION LESS 21)
+      set(SANITIZE_FLAGS "-fsanitize=address") # <-- Android NDK 21 以下版本不支持 sanitize undefined 参数
+    else()
+      set(SANITIZE_FLAGS "-fsanitize=address,undefined")
+    endif()
+
+    list(APPEND SANITIZE_FLAGS
+      -fno-sanitize=signed-integer-overflow
+      -fno-sanitize-recover=all
+      -fno-omit-frame-pointer)
+
+    target_compile_options(${target_name} PRIVATE
+      ${SANITIZE_FLAGS}
+    )
+    target_link_options(${target_name} PRIVATE
+      ${SANITIZE_FLAGS}
+    )
+  endif()
 endfunction(prj_enable_sanitizer)
 
 # Joins arguments and places the results in ${result_var}.
@@ -145,22 +244,25 @@ function(set_verbose)
   set(${var} ${val} CACHE ${type} ${doc})
 endfunction(set_verbose)
 
+# 为 Visual Studio 设置参数: 比如MT, Debug工作目录
 macro(_setup_vs_params _tgt_name)
   if(MSVC)
     if(NOT DEFINED PRJ_OUTPUT_DIR) # <-- which is deploy dir
       message(FATAL_ERROR "you must defined PRJ_OUTPUT_DIR variable first!")
     endif()
+
     set(_all_flags_var
-            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-            )
-    foreach (_item_flag_var ${_all_flags_var})
-        if (${_item_flag_var} MATCHES "/MD")
-            string(REGEX REPLACE "/MD" "/MT" ${_item_flag_var} "${${_item_flag_var}}")
-        endif ()
-    endforeach ()
+      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+    )
+
+    foreach(_item_flag_var ${_all_flags_var})
+      if(${_item_flag_var} MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" ${_item_flag_var} "${${_item_flag_var}}")
+      endif()
+    endforeach()
 
     # message(STATUS " setup vs params for ${_tgt_name}, VS_DEBUGGER_WORKING_DIRECTORY: ${PRJ_OUTPUT_DIR}")
     set_property(TARGET ${_tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -168,10 +270,10 @@ macro(_setup_vs_params _tgt_name)
   endif(MSVC)
 endmacro(_setup_vs_params)
 
+# 去除cmake编译时候带的环境，并重设为库所在的当前目录
 macro(_setup_rpath _tgt_name)
-  # 去除cmake编译时候带的环境，并重设为库所在的当前目录
   if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-    SET(CMAKE_SKIP_RPATH TRUE)
+    set(CMAKE_SKIP_RPATH TRUE)
     set_target_properties(${_tgt_name} PROPERTIES LINK_FLAGS "-Wl,-rpath,\$ORIGIN:\$ORIGIN/lib:\$ORIGIN/libs")
   endif()
 endmacro(_setup_rpath)
@@ -277,10 +379,10 @@ function(prj_cc_library)
     endif()
   endif(PRJ_ENABLE_INSTALL)
 
-  # Check if this is a header-only library
-  # Note that as of February 2019, many popular OS's (for example, Ubuntu
-  # 16.04 LTS) only come with cmake 3.5 by default.  For this reason, we can't
-  # use list(FILTER...)
+  # Check if this is a header-only library.
+  # Note that as of February 2019, many popular OS's (for example,
+  # Ubuntu 16.04 LTS) only come with cmake 3.5 by default.
+  # For this reason, we can't use list(FILTER...)
   set(PRJ_CC_SRCS "${PRJ_CC_LIB_SRCS}")
 
   foreach(src_file IN LISTS PRJ_CC_SRCS)
@@ -298,7 +400,7 @@ function(prj_cc_library)
   if(PRJ_BUILD_SHARED OR BUILD_SHARED_LIBS)
     set(_lib_type "SHARED")
 
-    if(PRJ_BUILD_ALL_IN_ONE AND (NOT _NAME STREQUAL "${CMAKE_PROJECT_NAME}"))
+    if(PRJ_BUILD_ALL_IN_ONE AND(NOT _NAME STREQUAL "${CMAKE_PROJECT_NAME}"))
       set(_lib_type "STATIC")
       message(STATUS "  PRJ_BUILD_ALL_IN_ONE is ON, let \"${_NAME}\" lib_type change to ${_lib_type}, for \"${CMAKE_PROJECT_NAME}\" to include it.")
     endif()
@@ -360,10 +462,10 @@ function(prj_cc_library)
       get_target_property(TARGET_COMPILE_OPTIONS ${_NAME} COMPILE_OPTIONS)
 
       # message(STATUS "  \"${_NAME}\" COMPILE_OPTIONS=${COMPILE_OPTIONS}")
-      # 设置C源文件的编译选项
+      # 设置 C源文件的编译选项
       set_property(TARGET ${_NAME} APPEND PROPERTY COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:C>:${PRJ_CC_LIB_COPTS}>)
 
-      # 设置C++源文件的编译选项
+      # 设置 C++源文件的编译选项
       set_property(TARGET ${_NAME} APPEND PROPERTY COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CXX>:${PRJ_CC_LIB_CCOPTS}>)
     else()
       target_compile_options(${_NAME} PRIVATE ${PRJ_CC_LIB_COPTS})
@@ -374,7 +476,7 @@ function(prj_cc_library)
       target_compile_definitions(${_NAME} PUBLIC ${PRJ_CC_LIB_DEFINES})
     endif()
 
-    if(PRJ_SANITIZE_ADDRESS)
+    if(PRJ_ENABLE_ASAN)
       prj_enable_sanitizer(${_NAME})
     endif()
 
@@ -413,11 +515,11 @@ function(prj_cc_library)
         VERSION ${PROJECT_VERSION}
         SOVERSION ${_SO_VER}
         OUTPUT_NAME ${_NAME})
-      
+
       # if ((NOT CYGWIN) AND UNIX AND (_lib_type STREQUAL "SHARED"))
-      #   set(_GENERATE_SO_NAME "${CMAKE_SHARED_LIBRARY_PREFIX}${_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-      #   message(STATUS "_GENERATE_SO_NAME=${_GENERATE_SO_NAME}")
-      #   set_target_properties(${_NAME} PROPERTIES LINK_FLAGS "-Wl,-soname,${_GENERATE_SO_NAME}")
+      # set(_GENERATE_SO_NAME "${CMAKE_SHARED_LIBRARY_PREFIX}${_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+      # message(STATUS "_GENERATE_SO_NAME=${_GENERATE_SO_NAME}")
+      # set_target_properties(${_NAME} PROPERTIES LINK_FLAGS "-Wl,-soname,${_GENERATE_SO_NAME}")
       # endif()
     endif(PRJ_ENABLE_SOVERSION)
 
@@ -524,7 +626,7 @@ function(prj_cc_test)
     target_compile_options(${_NAME} PRIVATE ${PRJ_CC_TEST_COPTS})
   endif()
 
-  if(PRJ_SANITIZE_ADDRESS)
+  if(PRJ_ENABLE_ASAN)
     prj_enable_sanitizer(${_NAME})
   endif()
 

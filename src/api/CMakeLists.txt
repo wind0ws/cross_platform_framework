@@ -1,8 +1,9 @@
-#file(GLOB_RECURSE HEADERS "*.h" "*.hpp")
+
+set(MODULE_NAME "api")
 
 prj_cc_library(
   NAME
-    api
+    ${MODULE_NAME}
   HDRS
     #${HEADERS}
   SRCS
@@ -12,12 +13,13 @@ prj_cc_library(
     # ${PRJ_COMPILE_OPTIONS}
   DEPS
     ${CMAKE_PROJECT_NAME}::common
+  DEFINES
   PUBLIC
 )
 
 #prj_cc_test(
 #  NAME
-#    api_test
+#    ${MODULE_NAME}_test
 #  HDRS
 #    ${HEADERS}
 #  SRCS
@@ -25,6 +27,6 @@ prj_cc_library(
 #  COPTS
 #    ${PRJ_COMPILE_OPTIONS}
 #  DEPS
-#    ${CMAKE_PROJECT_NAME}::api
+#    ${CMAKE_PROJECT_NAME}::${MODULE_NAME}
 #  PUBLIC
 #)

@@ -41,15 +41,19 @@
 #define new __MYDEBUG_NEW
 
 // only need call once on your main function first line!
-// create log file, do not close it at end of main, because crt will write log to it.
+// create log file, no need close it at end of main function, because crt will write log to it.
 // dump is in warn level. let warn log to file, debug console and window .
-#define MEM_CHECK_INIT() {\
+#define MEM_CHECK_INIT() do { \
     void *_hDbgLogFile = CreateFile(TEXT("./memleak.log"), GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ,\
 	                             NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL); \
+	if (NULL == _hDbgLogFile)\
+	{\
+		printf("  err: oops! failed on create memleak file!  \n");\
+	}\
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG /*| _CRTDBG_MODE_WNDW*/); \
     _CrtSetReportFile(_CRT_WARN, _hDbgLogFile); \
 	_CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_ALLOC_MEM_DF | _CRTDBG_CHECK_ALWAYS_DF | _CRTDBG_LEAK_CHECK_DF); \
-}
+} while (0)
 // nothing need to do on deinit
 #define MEM_CHECK_DEINIT()  do { } while (0)
 #endif // _DEBUG && !_LCU_MEM_CHECK_FEATURE_ENABLE

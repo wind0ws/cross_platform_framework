@@ -1,0 +1,10 @@
+{
+    global:
+      my_api_*;
+      my_cJSON_*;
+      jni_*;
+      JNI_*;
+      Java_*;
+    local:
+        *;
+};

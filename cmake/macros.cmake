@@ -506,24 +506,24 @@ macro(detect_visual_studio_version)
   if (MSVC AND ("x${_vs_name}" STREQUAL "x")) # <-- 只查找一次
     set(_vs_name "")
     message(STATUS "  detected your MSVC_VERSION=${MSVC_VERSION}")
-    if(${MSVC_VERSION} GREATER_EQUAL 1945)      # maybe VS 2024 (version 18.x): 1945~xxxx
+    if(${MSVC_VERSION} VERSION_GREATER_EQUAL 1945)      # maybe VS 2024 (version 18.x): 1945~xxxx
        message(FATAL_ERROR "maybe Visual Studio 2024 or newer, should setup vs_name for this version!")
-    elseif(${MSVC_VERSION} GREATER_EQUAL 1930)  # VS 2022 (version 17.x): 1930~1944
+    elseif(${MSVC_VERSION} VERSION_GREATER_EQUAL 1930)  # VS 2022 (version 17.x): 1930~1944
        message(STATUS "Using Visual Studio 2022")
        set(_vs_name "vs2022")
-    elseif(${MSVC_VERSION} GREATER_EQUAL 1920)  # VS 2019 (version 16.x): 1920~1929
+    elseif(${MSVC_VERSION} VERSION_GREATER_EQUAL 1920)  # VS 2019 (version 16.x): 1920~1929
       message(STATUS "Using Visual Studio 2019")
       set(_vs_name "vs2019")
-    elseif(${MSVC_VERSION} EQUAL 1910)          # VS 2017 (version 15.x): 1910~1919
+    elseif(${MSVC_VERSION} VERSION_EQUAL 1910)          # VS 2017 (version 15.x): 1910~1919
       message(STATUS "Using Visual Studio 2017")
       set(_vs_name "vs2017")
-    elseif(${MSVC_VERSION} EQUAL 1900)          # VS 2015 (version 14.x): 1900~1909
+    elseif(${MSVC_VERSION} VERSION_EQUAL 1900)          # VS 2015 (version 14.x): 1900~1909
       message(STATUS "Using Visual Studio 2015")
       set(_vs_name "vs2015")
-    elseif(${MSVC_VERSION} EQUAL 1800)          # VS 2013 (version 12.x): 1800~1899
+    elseif(${MSVC_VERSION} VERSION_EQUAL 1800)          # VS 2013 (version 12.x): 1800~1899
       message(STATUS "Using Visual Studio 2013")
       set(_vs_name "vs2013")
-    elseif(${MSVC_VERSION} EQUAL 1700)          # VS 2012 (version 11.x): 1700~1799
+    elseif(${MSVC_VERSION} VERSION_EQUAL 1700)          # VS 2012 (version 11.x): 1700~1799
       message(STATUS "Using Visual Studio 2012")
       set(_vs_name "vs2012")
     else()

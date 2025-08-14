@@ -21,7 +21,8 @@
 
 # 目录结构
   - 3rdparty_reference 第三方库源码：不参与自动化编译，  
-                       请将编译好的库放入 `src/third_party/库名称/lib/<ARCH_TYPE>_<BUILD_TYPE>` 目录下
+                       请将编译好的库放入 `src/third_party/库名称/lib/<ARCH_TYPE>_<BUILD_TYPE>` 目录下.
+		       第三方库之所以不采用自动化依赖编译是因为每次改动代码都一起编译太耗费时间, 一般来说第三方库不怎么需要做改动.
   - cmake 依赖脚本
   - doc   文档
   - src   源码
@@ -31,7 +32,7 @@
     - example     测试工具源码
     - jni         安卓JNI实现模块，包装C/C++接口成JNI接口
     - third_party 三方库：放置第三方库/头文件及资源
-    - work_flow   工作流流转模块: 输入数据，在内部模块之间流转，抛出处理结果
+    - work_flow   工作流流转模块: 输入数据(api层规整后传入)，在内部模块之间流转，通过回调抛出处理结果给api层, 由api层规整对外的输入输出数据
   - tool 工具：编译临时目录、发布目录等等
     - build  编译目录，例如使用cmake生成的工程就在这里
 	- deploy 部署发布目录
@@ -70,12 +71,18 @@
        并在里面按照cmake语法写上编译器位置及必要的编译参数（如果没有就不写），具体的参考工程里自带的写法。
       ```shell
         # 编译64位linux
-        make_cross_platform.sh linux m64 Release
+        make_cross_platform.sh linux m64 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
         # 编译32位linux
-        make_cross_platform.sh linux m64 Release
+        make_cross_platform.sh linux m64 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
         
         #编译rk3308
-        make_cross_platform.sh rk3308 Release
+        make_cross_platform.sh rk3308 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
         #编译r328
-        make_cross_platform.sh r328 Release
+        make_cross_platform.sh r328 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
       ```  
+ 4. 编译产物
+    > 编译输出产物位于 `tool/deploy/bin/<PLATFORM>_<ABI>_<BUILD_TYPE>` 下  
+    > 例如: 
+    >  - 在 `windows x32 debug` 编译模式下，输出文件夹为: `tool/deploy/bin/windows_x32_debug`  
+    > - 在 `linux x64 release` 编译模式下，输出文件夹为: `tool/deploy/bin/linux_x64_release`    
+    > - 在 `linaro7.5.0 x64 release` 编译模式下，输出文件夹为: `tool/deploy/bin/linaro7.5.0_x64_release`  

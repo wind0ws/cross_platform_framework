@@ -4,8 +4,8 @@
  ******************************************************************************/
 
  // Attention: HashMap is NOT thread safe!
- // for concurrency support, you should add lock/unlock function on create 
- // or protect all operations of hashmap by your self.
+ // for concurrency support, you should provide lock/unlock function on hashmap_create. 
+ // or protect all operations on hashmap by your self.
 
 #pragma once
 #ifndef LCU_HASHMAP_H
@@ -65,7 +65,7 @@ extern "C" {
 	 * Frees the hash map.
 	 * if you set key_free_fn and value_free_fn, we will call it on free,
 	 * so keys/values can be freed automatically;
-	 * otherwise it does not free the keys or values themselves.
+	 * otherwise it does not free the keys or values themselves, you should do it by yourself.
 	 */
 	void hashmap_free(hashmap_t* map);
 
@@ -77,6 +77,7 @@ extern "C" {
 
 	/**
 	 * Get current hashmap size.
+	 * which means there have how many keys(values) in hashmap.
 	 */
 	size_t hashmap_size(hashmap_t* map);
 

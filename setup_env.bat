@@ -1,4 +1,4 @@
-PUSHD %~DP0 & TITLE setup_env & COLOR 0A & setlocal enabledelayedexpansion
+PUSHD %~DP0 & TITLE setup_env & chcp 65001 & COLOR 0A & setlocal enabledelayedexpansion
 :: 非0则不显示每行执行的脚本命令
 set ECHO_OFF=1
 set ENV_EXIT_CODE=0

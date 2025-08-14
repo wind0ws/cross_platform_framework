@@ -14,7 +14,7 @@ macro(CHECK_PTHREAD_SETNAME)
 endmacro(CHECK_PTHREAD_SETNAME)
 
 function(CheckForLinuxPlatform)
-    SET(COMMON_FLAG "-w -pipe -Wl,-z,muldefs -fstack-protector -fstack-protector-all -fomit-frame-pointer -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden -fvisibility-inlines-hidden -Bsymbolic")
+    set(COMMON_FLAG "-w -pipe -Wl,-z,muldefs -fstack-protector -fstack-protector-all -fomit-frame-pointer -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden -fvisibility-inlines-hidden -Bsymbolic")
 
     set(CMAKE_C_VISIBILITY_PRESET hidden PARENT_SCOPE)
     set(CMAKE_CXX_VISIBILITY_PRESET hidden PARENT_SCOPE)
@@ -77,44 +77,43 @@ function(CheckForLinuxPlatform)
         message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
     endif()
 
-    MESSAGE(STATUS "CMAKE_SIZEOF_VOID_P  = " ${CMAKE_SIZEOF_VOID_P})
+    message(STATUS "CMAKE_SIZEOF_VOID_P  = " ${CMAKE_SIZEOF_VOID_P})
 
-    IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        MESSAGE(STATUS "current platform: Linux x64")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(STATUS "current platform: Linux x64")
 
-        IF(PLATFORM_ABI MATCHES "x86")
-            MESSAGE(STATUS "build x32 bit lib in x64 os system")
+        if(PLATFORM_ABI MATCHES "x86")
+            message(STATUS "build x32 bit lib in x64 os system")
 
-            SET(COMMON_FLAG "${COMMON_FLAG} -m32")
+            set(COMMON_FLAG "${COMMON_FLAG} -m32")
             add_compile_options(-m32)
             add_link_options(-m32)
             set(BUILD_32_LIB ON PARENT_SCOPE)
-        ENDIF()
-    ELSE()
-        IF(PLATFORM_ABI MATCHES "x64")
-            MESSAGE(FATAL_ERROR "can not build 64bit on 32 os system")
-        ENDIF()
-    ENDIF(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        endif()
+    else()
+        if(PLATFORM_ABI MATCHES "x64")
+            message(FATAL_ERROR "can not build 64bit on 32 os system")
+        endif()
+    endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 
     CHECK_PTHREAD_SETNAME()
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET(COMMON_FLAG "${COMMON_FLAG} -O0 -g3")
+        set(COMMON_FLAG "${COMMON_FLAG} -O0 -g3")
     else()
-        SET(COMMON_FLAG "${COMMON_FLAG} -Os")
+        set(COMMON_FLAG "${COMMON_FLAG} -Os")
     endif()
 
-    #SET(LINK_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../libs/linux/${PLATFORM_ABI} PARENT_SCOPE)
-
+    # SET(LINK_LIB_DIR ${CMAKE_CURRENT_LIST_DIR}/../libs/linux/${PLATFORM_ABI} PARENT_SCOPE)
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--exclude-libs,ALL")
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--unresolved-symbols=ignore-in-shared-libs")
 
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
 
     # MinSizeRel 编译模式下, 默认 strip 符号.
-    SET(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
 endfunction(CheckForLinuxPlatform)
 
 macro(msvc_source_group_by_dir abs_cur_dir source_files)
@@ -137,10 +136,10 @@ macro(msvc_source_group_by_dir abs_cur_dir source_files)
 endmacro(msvc_source_group_by_dir)
 
 function(CheckForWindowsPlatform)
-    IF(MSVC)
-        SET(COMMON_FLAG "-w /utf-8 /nologo /Gm- /Ob2 /errorReport:prompt /WX- /Zc:wchar_t /Zc:inline /Zc:forScope /GR /Gd /Oy- /MT /EHsc /MP")
+    if(MSVC)
+        set(COMMON_FLAG "-w /utf-8 /nologo /Gm- /Ob2 /errorReport:prompt /WX- /Zc:wchar_t /Zc:inline /Zc:forScope /GR /Gd /Oy- /MT /EHsc /MP")
 
-        if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+        if(NOT(CMAKE_BUILD_TYPE STREQUAL "Debug"))
             set(COMMON_FLAG "${COMMON_FLAG} /Os")
         endif()
 
@@ -152,21 +151,21 @@ function(CheckForWindowsPlatform)
         elseif(COMPILER_SUPPORTS_CXXLATEST)
             set(COMMON_FLAG "${COMMON_FLAG} /std:c++latest")
         endif(COMPILER_SUPPORTS_CXX11)
-    ENDIF(MSVC)
+    endif(MSVC)
 
     set(COMMON_FLAG "${COMMON_FLAG} -DUNICODE -D_UNICODE")
 
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
 endfunction(CheckForWindowsPlatform)
 
 function(CheckForAndroidPlatform)
-    SET(COMMON_FLAG " -w -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden")
+    set(COMMON_FLAG " -w -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden")
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET(COMMON_FLAG "${COMMON_FLAG} -O0 -g3")
+        set(COMMON_FLAG "${COMMON_FLAG} -O0 -g3")
     else()
-        SET(COMMON_FLAG "${COMMON_FLAG} -Os")
+        set(COMMON_FLAG "${COMMON_FLAG} -Os")
     endif()
 
     CHECK_CXX_COMPILER_FLAG("-Wl,--gc-sections" COMPILER_SUPPORTS_GC_SECTIONS)
@@ -192,20 +191,20 @@ function(CheckForAndroidPlatform)
 
     set(COMMON_FLAG "${COMMON_FLAG} -Wl,--unresolved-symbols=ignore-in-shared-libs")
 
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
 
-    SET(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
 endfunction(CheckForAndroidPlatform)
 
 function(CheckForiOSPlatform)
-    SET(COMMON_FLAG " -w -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden")
+    set(COMMON_FLAG " -w -fPIC -ffunction-sections -fdata-sections -fvisibility=hidden")
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        SET(COMMON_FLAG "${COMMON_FLAG} -O0 -g3")
+        set(COMMON_FLAG "${COMMON_FLAG} -O0 -g3")
     else()
-        SET(COMMON_FLAG "${COMMON_FLAG} -Os")
+        set(COMMON_FLAG "${COMMON_FLAG} -Os")
     endif()
 
     CHECK_CXX_COMPILER_FLAG("-Wl,-dead_strip" COMPILER_SUPPORTS_GC_SECTIONS)
@@ -231,9 +230,9 @@ function(CheckForiOSPlatform)
 
     set(COMMON_FLAG "${COMMON_FLAG} -Wl")
 
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAG}" PARENT_SCOPE)
 
-    SET(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
-    SET(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
+    set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -s" PARENT_SCOPE)
 endfunction(CheckForiOSPlatform)

@@ -120,6 +120,8 @@ goto label_exit_make
 
 :label_check_params
 @echo =============== detect VS version succeed ===============
+:: 若使用 ClangCL 来编译VS工程, 需要添加编译参数(-T ClangCL), 并让VS支持 ClangCL: 
+:: 可以在运行框打开 appwiz.cpl, 找到 VisualStudio, 右击修改, 单个组件 --> 添加 Clang 组件 --> 执行修改
 if "%BUILD_ABI%" EQU "Win32" set NEW_VS_ARCH=" -A Win32" & goto label_main
 if "%BUILD_ABI%" EQU "Win64" set NEW_VS_ARCH="" & goto label_main
 @echo params check failed: unknown BUILD_ABI=%BUILD_ABI%

@@ -7,7 +7,7 @@
 #include "my_api.h"
 #endif
 
-int modules_state()
+int __dummy_modules_state()
 {
 	LOGD_TRACE("hello on %s:%d", __FILE__, __LINE__);
 

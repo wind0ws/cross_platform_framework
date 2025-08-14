@@ -96,7 +96,7 @@ if [[ "$PLATFORM" != "linux" ]]; then
 fi
 
 if [[ "${EXTEND_ARGS}" == "" ]]; then
-  echo "warning: you are not provide EXTEND_ARGS, we will compile with default params!"
+  echo "warning: you did not provide EXTEND_ARGS, we will compile with default params!"
 elif [[ $EXTEND_ARGS == -D* ]]; then  # 检查 EXTEND_ARGS 是否以 -D 开头
   # 如果以 -D 开头，则根据空格分割 EXTEND_ARGS 并追加到 CMAKE_EXTEND_ARGS
   CMAKE_EXTEND_ARGS+=($EXTEND_ARGS)

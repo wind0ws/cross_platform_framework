@@ -1,4 +1,5 @@
-#file(GLOB_RECURSE HEADERS "*.h" "*.hpp")
+
+set(MODULE_NAME "common")
 
 #
 # ---------------------------------------------------------------------------------------
@@ -9,35 +10,41 @@
 #find_lib_easy("lcu" ${PRJ_THIRD_LIB_SHARED} ${PRJ_THIRD_PARTY_DIR}/lcu)
 # 也可以直接include cmake文件，在里面写查找库脚本
 include(${PRJ_THIRD_PARTY_DIR}/lcu/find_me.cmake)
-message(STATUS "common show: lcu-lib=${lcu-lib}, lcu-inc=${lcu-inc}, lcu-asset=${lcu-asset}")
+message(STATUS "${MODULE_NAME} show: ${_LIB_NAME}-lib=${${_LIB_NAME}-lib}, ${_LIB_NAME}-inc=${${_LIB_NAME}-inc}, ${_LIB_NAME}-asset=${${_LIB_NAME}-asset}")
 
-# find socket lib
-set(socket-lib "")
+set(_DEPS ${${_LIB_NAME}-lib})
 if(MSVC)
-  set(socket-lib "ws2_32")
+  list(APPEND _DEPS "ws2_32")
 endif(MSVC)
+
+set(_SRCS "my_common.c"
+  "my_sched.c"
+  "my_cjson.c"
+  "global_func_impl.c")
+  
+set(_HDRS ${PRJ_COMMON_INCLUDE_DIRS} # which is "${PRJ_SOURCE_DIR}/src": include "src" dir. for module which depend on this module to use it
+  ${${_LIB_NAME}-inc})
+
 
 prj_cc_library(
   NAME
-    common
+    ${MODULE_NAME}
   HDRS
-    #${HEADERS}
-    ${PRJ_COMMON_INCLUDE_DIRS} # which is "${PRJ_SOURCE_DIR}/src": include "src" dir. for module which depend on this module to use it
-    ${lcu-inc}
+    ${_HDRS}
   SRCS
-    "common.c"
+    ${_SRCS}
   COPTS
     # ${PRJ_COMPILE_OPTIONS}
+  DEFINES
+    # _LCU_MEM_CHECK_FEATURE_ENABLE=0
   DEPS
-    ${lcu-lib}
-    ${socket-lib}
-	#${PRJ_DEPENDS_LOG}
+    ${_DEPS}
   PUBLIC
 )
 
 prj_cc_test(
  NAME
-   common_test
+   ${MODULE_NAME}_test
  HDRS
   #  ${HEADERS}
  SRCS
@@ -45,6 +52,6 @@ prj_cc_test(
  COPTS
   #  ${PRJ_COMPILE_OPTIONS}
  DEPS
-   ${CMAKE_PROJECT_NAME}::common
+   ${CMAKE_PROJECT_NAME}::${MODULE_NAME}
  PUBLIC
 )

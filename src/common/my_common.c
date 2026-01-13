@@ -41,15 +41,14 @@ int common_global_init()
 	}
 	global_func_impl_dummy_invoke();
 #ifdef _WIN32
-	// on stdlib.h
-	extern int system(const char *command);
 	// let windows console print utf8 characters.
-	system("chcp 65001");
+	SetConsoleOutputCP(65001);
+	SetConsoleCP(65001);
 #endif // _WIN32
 	lcu_global_init();
-	
-	LOGI("hello: build on (%s %s), lcu_ver=%s", __DATE__, __TIME__, lcu_get_version());
-	LOGI("your env: PLATFORM=%s, PLATFORM_ABI=%s", _PLATFORM, _PLATFORM_ABI);
+
+	LOGI("hello: build on (%s %s), lcu_ver=\"%s\"", __DATE__, __TIME__, lcu_get_version());
+	LOGI("your env: PLATFORM=\"%s\", PLATFORM_ABI=\"%s\"", _PLATFORM, _PLATFORM_ABI);
 
 #define _SETUP_AND_SHOW_ENV(KEY, VALUE)                      \
 	do                                                       \
@@ -83,7 +82,12 @@ int common_chdir(const char *dir)
 
 int common_getcwd(char *buffer, size_t size)
 {
-	return (NULL == _GETCWD(buffer, size)) ? 1 : 0;
+#ifdef _WIN32
+#define _GETCWD_SIZE_TYPE int
+#else
+#define _GETCWD_SIZE_TYPE size_t
+#endif // _WIN32
+	return (NULL == _GETCWD(buffer, (_GETCWD_SIZE_TYPE)size)) ? -1 : 0;
 }
 
 bool common_find_last_slash(char *file_path, size_t file_path_len, size_t *last_slash_index_p)

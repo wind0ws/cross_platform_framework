@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _COMMON_H
-#define _COMMON_H
+#ifndef _MY_COMMON_H
+#define _MY_COMMON_H
 
 #include <stddef.h>  /* for size_t    */
 #include <stdbool.h> /* for bool      */
@@ -38,4 +38,4 @@ extern "C"
 }
 #endif
 
-#endif // !_COMMON_H
+#endif // !_MY_COMMON_H

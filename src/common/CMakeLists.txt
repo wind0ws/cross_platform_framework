@@ -17,10 +17,10 @@ if(MSVC)
   list(APPEND _DEPS "ws2_32")
 endif(MSVC)
 
-set(_SRCS "my_common.c"
+set(_SRCS "global_func_impl.c"
+  "my_common.c"
   "my_sched.c"
-  "my_cjson.c"
-  "global_func_impl.c")
+  "my_cjson.c")
   
 set(_HDRS ${PRJ_COMMON_INCLUDE_DIRS} # which is "${PRJ_SOURCE_DIR}/src": include "src" dir. for module which depend on this module to use it
   ${${_LIB_NAME}-inc})

@@ -1,10 +1,9 @@
 if (ANDROID)
-
-#file(GLOB_RECURSE HEADERS "*.h" "*.hpp")
+  set(MODULE_NAME "jni")
 
 prj_cc_library(
   NAME
-    jni
+      ${MODULE_NAME}
   HDRS
     #${HEADERS}
   SRCS
@@ -19,15 +18,15 @@ prj_cc_library(
 
 # prj_cc_test(
 #  NAME
-#    jni_test
+#    ${MODULE_NAME}_test
 #  HDRS
 #   #  ${HEADERS}
 #  SRCS
-#    "jni_vtn_api_test.c"
+#    "jni_my_api_test.c"
 #  COPTS
 #   #  ${PRJ_COMPILE_OPTIONS}
 #  DEPS
-#    ${CMAKE_PROJECT_NAME}::jni
+#    ${CMAKE_PROJECT_NAME}::${MODULE_NAME}
 #  PUBLIC
 # )
 

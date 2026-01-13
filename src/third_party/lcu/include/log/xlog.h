@@ -54,7 +54,7 @@ extern "C" {
 	 * global cleanup lcu
 	 *
 	 * call at ending of your app,
-	 * otherwise maybe some resource not released
+	 * otherwise maybe some resource not released.
 	 */
 	int xlog_global_cleanup();
 
@@ -88,7 +88,7 @@ extern "C" {
 	/**
 	 * timezone_hour used by generate your local log time.
 	 * timezone_hour should between -12 ~ 12. default timezone_hour is 8. 
-	 * example: In china, we are in +8 timezone area, so here set it to 8.
+	 * example: in china, we are in +8 timezone area, so here set it to 8.
 	 */
 	void xlog_set_timezone(int timezone_hour);
 
@@ -107,13 +107,13 @@ extern "C" {
 	/**
 	 * set user callback. when log performed, callback will called.
 	 * you can do your own log logic on callback.
-	 * note: log target should include LOG_TARGET_USER_CALLBACK, otherwise callback won't trigged
+	 * note: log target should include LOG_TARGET_USER_CALLBACK, otherwise callback won't triggered.
 	 */
 	void xlog_set_user_callback(xlog_user_callback_fn user_cb, void* user_data);
 
 	/**
 	 * @brief set log target which you want to output.
-	 * @note  if you output on multi target and not provide lock, printing order can't be ensured.
+	 * @note  we use internal lock to make sure the right printing order.
 	 * 
 	 * @param[in]	target : default on Android is LOG_TARGET_ANDROID, other platform is LOG_TARGET_CONSOLE.
 	 *                       multiple target can be combined. 

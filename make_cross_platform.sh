@@ -31,14 +31,15 @@ cmake -H./  -B"$BUILD_DIR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" "${CMAKE_EXTEND_ARGS
 
 ERR_CODE=$?
 if [ $ERR_CODE -ne 0 ];then
-    echo "  Error on generate project, ERR=$ERR_CODE  "       
+    echo "  Error($ERR_CODE) on generate project: \"${PLATFORM}\" \"${BUILD_ABI}\" \"${BUILD_TYPE}\" "       
     exit $ERR_CODE   
 fi 
 
-cmake --build $BUILD_DIR --config $BUILD_TYPE -- -j12
+echo -e "\n\n  Build \"${PLATFORM}\" \"${BUILD_ABI}\" \"${BUILD_TYPE}\" using $(nproc) threads.\n"
+cmake --build $BUILD_DIR --config $BUILD_TYPE -- -j$(nproc)
 ERR_CODE=$?
 if [ $ERR_CODE -ne 0 ];then
-    echo "  Error on build $BUILD_ABI $BUILD_TYPE, ERR=$ERR_CODE  " 
+    echo "  Error($ERR_CODE) on build \"${PLATFORM}\" \"${BUILD_ABI}\" \"${BUILD_TYPE}\" "       
     exit $ERR_CODE
 fi
-echo -e "\n...Build ${PLATFORM} ${BUILD_ABI} ${BUILD_TYPE} finished($ERR_CODE)...\n"
+echo -e "\n...Build \"${PLATFORM}\" \"${BUILD_ABI}\" \"${BUILD_TYPE}\" finished($ERR_CODE)...\n"

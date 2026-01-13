@@ -155,7 +155,7 @@ IF !ERR_CODE! NEQ 0 (
 )
 @echo.
 @echo "generate project succeed, now compile it ..."
-%CMAKE_BIN% --build %BUILD_DIR:"=% --config %BUILD_TYPE:"=%
+%CMAKE_BIN% --build %BUILD_DIR:"=% --config %BUILD_TYPE:"=% -- /m /p:CL_MPcount=%NUMBER_OF_PROCESSORS%
 set ERR_CODE=%ERRORLEVEL%
 IF !ERR_CODE! NEQ 0 (
    @echo "! Error on build project: %ERR_CODE% !"

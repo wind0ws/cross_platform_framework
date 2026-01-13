@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+# 3.13支持LINK_FLAGS, 3.15支持CMAKE_MSVC_RUNTIME_LIBRARY
+cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
 # ---------------------------------------------------------------------------------------
 # Start project
@@ -127,7 +128,7 @@ option(PRJ_BUILD_ALL_IN_ONE "Build all in one library" ON)
 
 # build shared option
 option(PRJ_BUILD_SHARED "Build shared library" OFF)
-option(BUILD_SHARED_LIBS "Build shared library" OFF)
+option(BUILD_SHARED_LIBS "Build shared library, alias for PRJ_BUILD_SHARED" ${PRJ_BUILD_SHARED})
 
 if(PRJ_BUILD_SHARED OR BUILD_SHARED_LIBS)
   set(PRJ_BUILD_SHARED ON)
@@ -321,3 +322,4 @@ message(STATUS " PRJ_COMPILE_OPTIONS: ${PRJ_COMPILE_OPTIONS} \n PRJ_CXX_COMPILE_
 define_dependency_var()
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/")
+

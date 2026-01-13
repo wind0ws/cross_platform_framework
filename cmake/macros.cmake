@@ -244,8 +244,8 @@ endmacro(define_dependency_var)
 #   _target_base_relative_path: asset copy to where, the base relative path will append to target dir
 #
 macro(copy_dependency_lib_and_asset _target _target_base_relative_path)
-  if ((NOT _PRJ_DEPENDENCY_THIRD_LIBS) OR (NOT _PRJ_DEPENDENCY_THIRD_ASSETS))
-    message(FATAL_ERROR "must define \"_PRJ_DEPENDENCY_THIRD_LIBS\" and \"_PRJ_DEPENDENCY_THIRD_ASSETS\" first!")
+  if ((NOT _PRJ_DEPENDENCY_THIRD_LIBS) AND (NOT _PRJ_DEPENDENCY_THIRD_ASSETS))
+    message(WARNING " maybe \"_PRJ_DEPENDENCY_THIRD_LIBS\" and \"_PRJ_DEPENDENCY_THIRD_ASSETS\" not defined, OR nothing we need copy!")
   endif()
   # ---------------------------------------------------------------------------------------
   # 拷贝第三方库文件到部署目录
@@ -290,22 +290,17 @@ endmacro(copy_dependency_lib_and_asset)
 #  _lib_dirs: dir list. the dir that will lookup.
 #
 macro(lookup_lib_in_dir _lib_name _lib_file_name _lib_dir_list)
-  set(_lookup_lib_succeed 0)
-  set(_lib_dirs ${${_lib_dir_list}}) # <-- expand list
-  #message(STATUS "lookup_lib_in_dir show dirs: ${_lib_dirs}")
+  # 移除局部的 _lookup_lib_succeed，让外部调用者自己判断
+  set(_lib_dirs ${${_lib_dir_list}})
   list(LENGTH _lib_dirs _lib_dirs_list_length)
   if (_lib_dirs_list_length EQUAL 0)
     message(FATAL_ERROR "_lib_dirs is empty!")
   endif()
 
   foreach(_lib_dir ${_lib_dirs})
-    # 设置库变量和对应库路径. 设置为CACHE变量是为了子模块查找的变量父模块也能用。
     set(${_lib_name}-lib "${_lib_dir}/${_lib_file_name}" CACHE INTERNAL "")
     message(STATUS "  now check lib path: ${${_lib_name}-lib}")
     if(EXISTS "${${_lib_name}-lib}")
-      set(_lookup_lib_succeed 1)
-      # 找到的库所在的文件夹路径。 供库模块(find_me.cmake)添加此库的其他依赖用. 
-      #   比如在windows依赖lcu静态库，那么还需把pthread_lib.lib添加到依赖，这是pthread的实现库.
       set(${_lib_name}-lib-dir "${_lib_dir}" CACHE INTERNAL "")
       message(STATUS "succeed lookup \"${_lib_name}\" on \"${${_lib_name}-lib}\"")
       break()
@@ -348,9 +343,9 @@ endmacro(standardization_lib_name)
 #
 # find_lib: find the given name lib from ${_lib_relative_dir}, 
 #           fallback to ${_lib_relative_dir_fallback} if fail.
-#           it will generate var ${_lib_name}-lib and store lib path.
-#           also it will generate var ${_lib_name}-inc and store include header path.
-#  _lib_name: the name of lib, not full name. eg: curl
+#           it will generate var "${_lib_name}-lib" and store lib path.
+#           also it will generate var "${_lib_name}-inc" and store include header path.
+#  _lib_name: the name of lib, not full lib file name. eg: curl
 #  _shared:  ON/OFF. find shared lib or static lib.
 #  _lib_package_dir: dir of lib package, eg: ${PRJ_SOURCE_DIR}/src/third_party/curl
 #  _lib_relative_dir_list: relative dir list variable name, 
@@ -366,12 +361,6 @@ endmacro(standardization_lib_name)
 macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
   standardization_lib_name(_lib_name)
   message(STATUS "  standardization_lib_name => ${_lib_name}")
-  ## 标准化库名称变量名，去除 "_a" 这种后缀
-  #if(${_lib_name} MATCHES "\_a$") # <-- 判断库名字是否以"_a"为结尾，去除库名字结尾的 _a ，用于建立变量: 库名字-lib 
-  #  string(REPLACE "_a.r" "" _lib_name "${_lib_name}.r") # <-- trick: 只去除结尾的"_a"，不去库名字中间的
-  #else()
-  #  set(_lib_name ${_lib_name})
-  #endif()
 
   if(NOT "x${${_lib_name}-lib}" STREQUAL "x")
     message(STATUS "${_lib_name}-lib => \"${${_lib_name}-lib}\" is alreay defined. no need lookup again.")
@@ -381,16 +370,13 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
       message(FATAL_ERROR "can't find lib: ${_lib_name}, because of lib_package_dir(\"${_lib_package_dir}\") not exists!")
     endif()
     
-    # use get_filename_component to get last package dir name.
     get_filename_component(_lib_name_alias "${_lib_package_dir}" NAME)  
     message(STATUS "  \"${_lib_name}\" on folder \"${_lib_name_alias}\"")
 
     # 1. 查找库 路径
     set(_lib_dirs "")
-    set(_lib_relative_dirs ${${_lib_relative_dir_list}}) # <-- 展开list参数
-    #message(STATUS "find_lib _lib_relative_dirs=${_lib_relative_dirs}")
+    set(_lib_relative_dirs ${${_lib_relative_dir_list}})
     foreach(_lib_relative_dir ${_lib_relative_dirs})
-      #message(STATUS "_lib_relative_dir=${_lib_relative_dir}")
       list(APPEND _lib_dirs "${_lib_package_dir}/${_lib_relative_dir}")
     endforeach()
     message(STATUS "will lookup _lib_dirs: ${_lib_dirs}")
@@ -399,23 +385,31 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
     message(STATUS "LIB PREFIX=\"${_LIB_PREFIX}\", SUFFIX=\"${_LIB_SUFFIX}\"")
 
     set(_lookup_lib_succeed 0)
-    if(NOT ${_shared}) # <-- 对静态库先做检测
-      # 目标为静态库 则先尝试下 "库名字_a" 这种静态库存不存在，如果存在用这个，否则回退用不带 "_a" 的
+    if(NOT ${_shared})
+      # 目标为静态库的情况下, 先尝试下 "库名字_a" 这种静态库存不存在. 若不存在, 后面再尝试 "库名字" 这种静态库.
       set(_lib_file_name ${_LIB_PREFIX}${_lib_name}_a${_LIB_SUFFIX})
       message(STATUS " ~~~ try lookup for ${_lib_file_name}")
       lookup_lib_in_dir(${_lib_name} ${_lib_file_name} _lib_dirs)
+      # lookup_lib_in_dir 宏中的 _lookup_lib_succeed 需要传递出来
+      if(EXISTS "${${_lib_name}-lib}")
+        set(_lookup_lib_succeed 1)
+      endif()
     endif()
+    
     if (NOT ${_lookup_lib_succeed})
       set(_lib_file_name ${_LIB_PREFIX}${_lib_name}${_LIB_SUFFIX})
       message(STATUS " ~~~ lookup for ${_lib_file_name}")
       lookup_lib_in_dir(${_lib_name} ${_lib_file_name} _lib_dirs)
+      if(EXISTS "${${_lib_name}-lib}")
+        set(_lookup_lib_succeed 1)
+      endif()
     endif()
 
     message(STATUS "${_lib_name}-lib => \"${${_lib_name}-lib}\"")
     if((NOT ${_lookup_lib_succeed}) OR (NOT EXISTS "${${_lib_name}-lib}"))
       message(FATAL_ERROR "lookup \"${_lib_name}\" failed! \"${${_lib_name}-lib}\" not exists! please check the file.")
     endif()
-    # windows 动态库还需查找 库名.lib 对应依赖的 库名.dll, 把这个库追加到项目列表中供编译后拷贝到运行目录，否则运行报缺dll
+    # windows 动态库还需查找 "库名.lib" 对应依赖的 "库名.dll", 把这个dll库追加到项目列表中供编译后拷贝到运行目录，否则运行报缺dll
     if((DEFINED MSVC) AND (${_shared}))
       #message(STATUS "detect use windows shared libs")
       string(REPLACE ".lib" ".dll" ${_lib_name}-dll "${${_lib_name}-lib}")
@@ -444,7 +438,7 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
         list(APPEND _PRJ_DEPENDENCY_THIRD_ASSETS ";${_lib_name_alias}=${${_lib_name}-asset}") 
         set(_PRJ_DEPENDENCY_THIRD_ASSETS ${_PRJ_DEPENDENCY_THIRD_ASSETS} PARENT_SCOPE) # <-- 反馈到父级模块
       else()
-        message(WARNING "\"_PRJ_DEPENDENCY_THIRD_ASSETS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
+        message(FATAL_ERROR "\"_PRJ_DEPENDENCY_THIRD_ASSETS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
       endif()
     else()
       unset(${_lib_name}-asset CACHE)  
@@ -454,15 +448,17 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
     if(DEFINED _PRJ_DEPENDENCY_THIRD_LIBS)
       message(STATUS "  _PRJ_DEPENDENCY_THIRD_LIBS is defined, now add \"${_lib_name}-lib\" to list")
       list(APPEND _PRJ_DEPENDENCY_THIRD_LIBS "${${_lib_name}-lib}")
+      # MSVC 动态库还需把对应的 dll 也加入到依赖库列表中
       if(DEFINED ${_lib_name}-dll)
         list(APPEND _PRJ_DEPENDENCY_THIRD_LIBS "${${_lib_name}-dll}")
         message(STATUS "  add \"${_lib_name}-dll\"(${${_lib_name}-dll}) to list")
       endif()
-      # 变量作用域只在当前和子模块能读取，改也只是对当前和子模块生效，
-      # 要让上级模块变量也得到更新，需要使用 PARENT_SCOPE
+
+      # cmake的变量作用域 只在当前和子模块能感知更新，改也只是对当前和子模块生效，
+      # 所以要让上级模块变量也得到更新，需要使用 PARENT_SCOPE
       set(_PRJ_DEPENDENCY_THIRD_LIBS ${_PRJ_DEPENDENCY_THIRD_LIBS} PARENT_SCOPE) # <-- 反馈到父级模块
     else()
-      message(WARNING "\"_PRJ_DEPENDENCY_THIRD_LIBS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
+      message(FATAL_ERROR "\"_PRJ_DEPENDENCY_THIRD_LIBS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
     endif(DEFINED _PRJ_DEPENDENCY_THIRD_LIBS)
   endif()
 endmacro(find_lib) # end of find_lib macro
@@ -484,7 +480,7 @@ macro(check_third_party_dir)
 endmacro(check_third_party_dir)
 
 #
-# prepend_dir: generate new dirs by ${_suffix} from  ${${_relative_dir_list}},
+# prepend_dir: generate new dirs by ${_suffix} from ${${_relative_dir_list}},
 #              and prepend new dirs to origin list head.
 # _suffix:     folder suffix, such as "vs2022" or "gnustl_static" 
 # _relative_dir_list: list variable name, will generate dir list with suffix 
@@ -534,7 +530,7 @@ endmacro(detect_visual_studio_version)
 
 #
 # find_lib_easy: helper for find_lib. 
-#                Find a library with a given name from the subdirectories of a given directory.
+#                find a library with a given name from the subdirectories of a given directory.
 #                
 # _lib_name: the name of lib that you want to lookup. eg: "curl"
 # _shared: ON/OFF. ON for find shared lib, OFF for find static lib.
@@ -560,7 +556,7 @@ macro(find_lib_easy _lib_name _shared _lib_package_dir)
     list(APPEND _relative_dirs "lib/${PLATFORM_TOLOWER}/${PLATFORM_ABI_TOLOWER}_release")
   endif()
   
-  # android 平台（且非 c++_static ）优先查找 指定的stl类型文件夹. 例如 armeabi-v7a_debug_gnustl_static
+  # android 平台(且非 c++_static)优先查找 指定的stl类型文件夹. 例如 armeabi-v7a_debug_gnustl_static
   if (ANDROID AND (NOT "${ANDROID_STL}" STREQUAL "c++_static"))
     message(STATUS "detected your ANDROID_STL=${ANDROID_STL}")
     prepend_dir(${ANDROID_STL} _relative_dirs)
@@ -571,7 +567,7 @@ macro(find_lib_easy _lib_name _shared _lib_package_dir)
     prepend_dir(${_vs_name} _relative_dirs)
   endif(MSVC)
 
-  message(STATUS "\"${_lib_name}\" will lookup in relative_dir: ${_relative_dirs}")
+  message(STATUS "\"${_lib_name}\" will lookup in relative_dirs: ${_relative_dirs}")
   find_lib(${_lib_name} ${_shared} ${_lib_package_dir} _relative_dirs)
 endmacro(find_lib_easy)
 

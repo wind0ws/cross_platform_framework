@@ -1,10 +1,19 @@
 # ============================= setup output dir START =============================
 if(NOT DEFINED PLATFORM OR("x${PLATFORM}" STREQUAL "x"))
-  if(DEFINED ANDROID)
+  if(ANDROID)
     set(PLATFORM Android)
-  elseif(DEFINED WIN32)
+  elseif(WIN32)
     set(PLATFORM Windows)
-  elseif(NOT CMAKE_CROSSCOMPILING) # we only use CMAKE_SYSTEM_NAME while not cross-compiling
+  elseif(APPLE)
+    set(PLATFORM macOS)
+  elseif(UNIX AND NOT APPLE)
+    # 优先使用 CMAKE_SYSTEM_NAME，但做更精确的判断
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      set(PLATFORM Linux)
+    else()
+      set(PLATFORM ${CMAKE_SYSTEM_NAME})
+    endif()
+  elseif(NOT CMAKE_CROSSCOMPILING)
     message(WARNING "not defined PLATFORM, use CMAKE_SYSTEM_NAME(${CMAKE_SYSTEM_NAME}) as PLATFORM")
     set(PLATFORM ${CMAKE_SYSTEM_NAME})
   else()
@@ -17,29 +26,20 @@ message(STATUS "your PLATFORM = ${PLATFORM}")
 # detect current PLATFORM_ABI
 if ((DEFINED PLATFORM_ABI) AND(NOT "x${PLATFORM_ABI}" STREQUAL "x"))
   message(STATUS "your PLATFORM_ABI = ${PLATFORM_ABI}")
-elseif(DEFINED ANDROID)
+elseif(ANDROID)
   set(PLATFORM_ABI ${ANDROID_ABI})
-
-  # ANDROID_PLATFORM_LEVEL: such as 16/19/21
   add_compile_definitions(ANDROID_PLATFORM_LEVEL=${ANDROID_PLATFORM_LEVEL})
 else()
-  if(CMAKE_CL_64)
-    if((CMAKE_C_FLAGS MATCHES "m32") OR(CMAKE_SIZEOF_VOID_P EQUAL 4))
-      message(STATUS "CL64 detect m32 in flags OR (VOID_P == 4), PLATFORM_ABI is x32")
-      set(PLATFORM_ABI x32)
-    else()
-      message(STATUS "normal x64")
-      set(PLATFORM_ABI x64)
-    endif()
+  # 统一使用 CMAKE_SIZEOF_VOID_P 判断位数
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(PLATFORM_ABI x64)
+  elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(PLATFORM_ABI x32)
   else()
-    if((CMAKE_C_FLAGS MATCHES "m64") OR(CMAKE_SIZEOF_VOID_P EQUAL 8))
-      message(STATUS "CL32 detect m64 in flags OR (VOID_P == 8), PLATFORM_ABI is x64")
-      set(PLATFORM_ABI x64)
-    else()
-      message(STATUS "normal x32")
-      set(PLATFORM_ABI x32)
-    endif()
-  endif(CMAKE_CL_64)
+    message(FATAL_ERROR "Unknown pointer size: ${CMAKE_SIZEOF_VOID_P}")
+  endif()
+  
+  message(STATUS "detected PLATFORM_ABI = ${PLATFORM_ABI} (CMAKE_SIZEOF_VOID_P=${CMAKE_SIZEOF_VOID_P})")
 endif()
 
 string(TOLOWER "${PLATFORM}" PLATFORM_TOLOWER)
@@ -136,7 +136,7 @@ if (WIN32 AND NOT CYGWIN AND NOT(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore") AND 
   add_link_options($<$<CONFIG:Release>:/LTCG>)
   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 else()
-  set(COMMON_C_FLGAS " -Wall -Wno-unused-local-typedefs -Wno-unused-function -Wno-comment -Wno-unknown-pragmas -fPIC")
+  set(COMMON_C_FLGAS " -Wall -Wno-unused-local-typedef -Wno-unused-local-typedefs -Wno-unused-function -Wno-comment -Wno-unknown-pragmas -fPIC")
   set(COMMON_CXX_FLAGS " -Wno-write-strings")
 
   # Android 5.0 及以上需要设置 PIE, 为啥不设置-fPIC, 因为已经 set(POSITION_INDEPENDENT_CODE TRUE)
@@ -161,22 +161,23 @@ endif()
 # replace MD to MT
 # ---------------------------------------------------------------------------------------
 if(WIN32 AND MSVC)
-  set(flag_var
-    CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-    CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-    CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-    CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-  )
+  # 移除全局标志修改，改为使用 cmake_policy 或目标属性
+  # 如果需要全局设置，使用 CMAKE_MSVC_RUNTIME_LIBRARY
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.15")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  else()
+    # 仅为旧版本 CMake 保留此代码
+    set(flag_var
+      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+    )
 
-  foreach(variable ${flag_var})
-    if(${variable} MATCHES "/MD")
-      string(REGEX REPLACE "/MD" "/MT" ${variable} "${${variable}}")
-    endif()
-  endforeach()
-
-  # foreach(tgt_name ${target_names})
-  # set_property(TARGET ${tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-  # set_property(TARGET ${tgt_name} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${PRJ_OUTPUT_DIR}")
-  # endforeach()
-  # set_property(TARGET ${target_prj_demo} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    foreach(variable ${flag_var})
+      if(${variable} MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" ${variable} "${${variable}}")
+      endif()
+    endforeach()
+  endif()
 endif(WIN32 AND MSVC)

@@ -251,30 +251,29 @@ macro(_setup_vs_params _tgt_name)
       message(FATAL_ERROR "you must defined PRJ_OUTPUT_DIR variable first!")
     endif()
 
-    set(_all_flags_var
-      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    )
-
-    foreach(_item_flag_var ${_all_flags_var})
-      if(${_item_flag_var} MATCHES "/MD")
-        string(REGEX REPLACE "/MD" "/MT" ${_item_flag_var} "${${_item_flag_var}}")
-      endif()
-    endforeach()
-
-    # message(STATUS " setup vs params for ${_tgt_name}, VS_DEBUGGER_WORKING_DIRECTORY: ${PRJ_OUTPUT_DIR}")
+    # 移除全局标志修改，改用目标属性
+    # CMake 3.15+ 推荐使用 MSVC_RUNTIME_LIBRARY 属性
     set_property(TARGET ${_tgt_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     set_property(TARGET ${_tgt_name} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${PRJ_OUTPUT_DIR}) # also can be "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
   endif(MSVC)
 endmacro(_setup_vs_params)
 
-# 去除cmake编译时候带的环境，并重设为库所在的当前目录
+# 去除 cmake 编译时候带的环境(rpath)，并重设为库所在的当前目录(和 libs 目录)
 macro(_setup_rpath _tgt_name)
   if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    message(STATUS "setup rpath for ${_tgt_name}")
     set(CMAKE_SKIP_RPATH TRUE)
-    set_target_properties(${_tgt_name} PROPERTIES LINK_FLAGS "-Wl,-rpath,\$ORIGIN:\$ORIGIN/lib:\$ORIGIN/libs")
+    # 使用 target_link_options 替代 set_target_properties，确保可以与其他链接选项共存
+    target_link_options(${_tgt_name} PRIVATE "LINKER:--enable-new-dtags")
+    target_link_options(${_tgt_name} PRIVATE "LINKER:-rpath,$ORIGIN:$ORIGIN/lib:$ORIGIN/libs:$ORIGIN/..:$ORIGIN/../lib:$ORIGIN/../libs")
+    set_target_properties(${_tgt_name} PROPERTIES SKIP_BUILD_RPATH TRUE)
+  elseif(APPLE)
+    # macOS 使用 @executable_path, @loader_path, @rpath
+    message(STATUS "setup rpath for ${_tgt_name} on macOS")
+    set_target_properties(${_tgt_name} PROPERTIES
+      INSTALL_RPATH "@executable_path;@executable_path/../lib;@executable_path/../Frameworks"
+      BUILD_WITH_INSTALL_RPATH TRUE
+    )
   endif()
 endmacro(_setup_rpath)
 
@@ -294,11 +293,11 @@ macro(batch_setup_target_properties _tgt_name)
   set_property(TARGET ${_tgt_name} PROPERTY CXX_STANDARD ${PRJ_CXX_STANDARD})
   set_property(TARGET ${_tgt_name} PROPERTY CXX_STANDARD_REQUIRED ON)
 
-  # Linker language can be inferred from sources, but in the case of DLLs we
-  # don't have any .cc files so it would be ambiguous. We could set it
-  # explicitly only in the case of DLLs but, because "CXX" is always the
-  # correct linker language for static or for shared libraries, we set it
-  # unconditionally.
+  # Linker language can be inferred from sources, 
+  # but in the case of DLLs we don't have any .cc files so it would be ambiguous. 
+  # We could set it explicitly only in the case of DLLs but, 
+  # because "CXX" is always the correct linker language for static or for shared libraries, 
+  # we set it unconditionally.
   set_property(TARGET ${_tgt_name} PROPERTY LINKER_LANGUAGE "CXX")
   _setup_vs_params(${_tgt_name})
   _setup_rpath(${_tgt_name})
@@ -399,7 +398,8 @@ function(prj_cc_library)
 
   if(PRJ_BUILD_SHARED OR BUILD_SHARED_LIBS)
     set(_lib_type "SHARED")
-
+    
+    # "PRJ_BUILD_ALL_IN_ONE" 选项打开的情况下 强制所有依赖子库编译为静态库，以便主库可以将它们全部包含进来。
     if(PRJ_BUILD_ALL_IN_ONE AND(NOT _NAME STREQUAL "${CMAKE_PROJECT_NAME}"))
       set(_lib_type "STATIC")
       message(STATUS "  PRJ_BUILD_ALL_IN_ONE is ON, let \"${_NAME}\" lib_type change to ${_lib_type}, for \"${CMAKE_PROJECT_NAME}\" to include it.")

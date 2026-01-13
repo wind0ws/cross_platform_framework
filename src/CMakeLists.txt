@@ -44,9 +44,10 @@ if(PRJ_BUILD_ALL_IN_ONE)
 
     if (MSVC AND (NOT CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS))
       set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES LINK_FLAGS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/exports.def")
-    elseif(("${CMAKE_C_VISIBILITY_PRESET}" STREQUAL "hidden") AND ("${CMAKE_CXX_VISIBILITY_PRESET}" STREQUAL "hidden"))
+    elseif(("${CMAKE_C_VISIBILITY_PRESET}" STREQUAL "hidden") OR ("${CMAKE_CXX_VISIBILITY_PRESET}" STREQUAL "hidden"))
       message(STATUS " !!! decteced visibility=hidden for ${CMAKE_PROJECT_NAME} !!! ")
-      target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -Wl,--version-script=${CMAKE_CURRENT_LIST_DIR}/exports.exp)
+      # 使用 target_link_options 替代直接设置 LINK_FLAGS，确保与 rpath 设置共存
+      target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "LINKER:--version-script=${CMAKE_CURRENT_LIST_DIR}/exports.exp")
     endif()
 
     # Merge library

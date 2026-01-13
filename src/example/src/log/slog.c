@@ -80,7 +80,7 @@ void slog_back2stdout()
 
 #endif // !_LCU_LOGGER_UNSUPPORT_STDOUT_REDIRECT
 
-static size_t str_char2hex(char* out_hex_str, size_t out_hex_str_capacity,
+static size_t slog_str_char2hex(char* out_hex_str, size_t out_hex_str_capacity,
 	const char* chars, size_t chars_count)
 {
 #define ONE_HEX_STR_SIZE (3U)
@@ -109,7 +109,7 @@ static size_t str_char2hex(char* out_hex_str, size_t out_hex_str_capacity,
 void __slog_internal_hex_print(int level, const char* tag, const char* chars, size_t chars_count)
 {
 	char buf[256];// use small stack size
-	str_char2hex(buf, sizeof(buf), chars, chars_count);
+	slog_str_char2hex(buf, sizeof(buf), chars, chars_count);
 	switch (level)
 	{
 	case LOG_LEVEL_VERBOSE:

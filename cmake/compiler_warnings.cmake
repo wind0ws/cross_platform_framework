@@ -71,6 +71,7 @@ function(get_warnings_copts warning_as_error _copts _cxxopts)
                 -Wformat=2 # warn on security issues around functions that format output
                 # (ie printf)
                 -Wno-dollar-in-identifier-extension
+                -Wno-unused-local-typedef # suppress unused local typedef warning, for STATIC_ASSERT
         )
 
         set(CLANG_CXX_WARNINGS

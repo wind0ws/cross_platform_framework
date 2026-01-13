@@ -253,9 +253,9 @@ typedef intptr_t ssize_t;
  // (never in C++ code). 
  // Whenever integers need to be passed as a pointer, use these macros. 
  // for compatible with 64bit OS, suggest use PTR_TO_LONG64 and LONG64_TO_PTR
-#define PTR_TO_UINT(p)    ((uintptr_t) (p)))
+#define PTR_TO_UINT(p)    ((uintptr_t) (p))
 #define UINT_TO_PTR(u)    ((void *) ((uintptr_t) (u)))
-#define PTR_TO_INT(p)     (((intptr_t) (p))
+#define PTR_TO_INT(p)     (((intptr_t) (p)))
 #define INT_TO_PTR(i)     ((void *) ((intptr_t) (i)))
 #define PTR_TO_LONG64(p)  ((long long) ((intptr_t) (p)))
 #define LONG64_TO_PTR(i)  ((void *) ((intptr_t) (i)))
@@ -288,7 +288,17 @@ static inline FILE* _fopen_safe(char const* _FileName, char const* _Mode)
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif // _WIN32
-#define fclose(fp) do{if(fp){ fclose(fp); (fp) = _THE_NULL; }}while(0)
+static inline int _fclose_safe(FILE** fp_p)
+{
+     int return_value = EOF;
+     if (fp_p && *(fp_p))
+     {
+          return_value = fclose(*(fp_p));
+          *fp_p = _THE_NULL;
+     }
+     return return_value;
+}
+#define fclose(fp) _fclose_safe(&(fp))
 
 #ifndef RANDOM
 #define RANDOM_INIT(seed)   srand((seed))

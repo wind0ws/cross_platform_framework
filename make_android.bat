@@ -125,12 +125,8 @@ IF !ERR_CODE! NEQ 0 (
    goto label_exit_make
 )
 
-%NINJA_BIN% -C %BUILD_DIR:"=% -j 8
+%NINJA_BIN% -C %BUILD_DIR:"=% -j %NUMBER_OF_PROCESSORS%
 set ERR_CODE=%ERRORLEVEL%
-::mkdir %OUTPUT_DIR%
-::copy /Y .\build_android_v7a\libcutils_test %OUTPUT_DIR%\\
-::copy /Y .\build_android_v7a\liblcu_a.a %OUTPUT_DIR%\\
-::copy /Y .\build_android_v7a\liblcu.so %OUTPUT_DIR%\\
 @echo.
 @echo "compile %PLATFORM% %BUILD_ABI% %BUILD_TYPE% finished(!ERR_CODE!). bye bye..."
 

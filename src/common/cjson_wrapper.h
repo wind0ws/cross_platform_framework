@@ -123,10 +123,28 @@ typedef _TMP_STRUCT_CJSON_HOOKS cJSON_Hooks;
 #define cJSON_malloc(size)                                                                          CONCAT1(CUSTOM_CJSON_PREFIX, cJSON_malloc(size))
 #define cJSON_free(object)                                                                          CONCAT1(CUSTOM_CJSON_PREFIX, cJSON_free(object))
 
+#define cJSON_SetBoolValue(object, boolValue)                                                       CONCAT1(CUSTOM_CJSON_PREFIX, cJSON_SetBoolValue(object, boolValue))
+#define cJSON_ArrayForEach(element, array)                                                          CONCAT1(CUSTOM_CJSON_PREFIX, cJSON_ArrayForEach(element, array)) 
 #endif // !USE_CUSTOM_CJSON
 
 //======================================================================================================================================
-// 提取 json item中的数字, 并将解析结果放到 (target_var)
+
+// 从 json_item 中提取指定 key 的节点, 并定义变量 item_##key. 如果 json_item 中不包含指定的 key, 则直接 break 退出.
+// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key".
+// 示例: 现在有个 node_params 的节点, 想获取该节点下的 "id" 字段:
+//  _CJSON_EXTRACT_ITEM_BY_KEY_OR_BREAK(node_params, id); 调用后如果 "id" 存在则会定义 cJSON *item_id 变量.
+#define _CJSON_EXTRACT_ITEM_BY_KEY_OR_BREAK(json_item, key)                \
+    cJSON *item_##key = NULL;                                              \
+    if (NULL == (item_##key = cJSON_GetObjectItem((json_item), (#key))))   \
+    {                                                                      \
+        LOGE_TRACE("\"" #json_item "\" is not contain key: \"" #key "\""); \
+        break;                                                             \
+    }
+
+//======================================================================================================================================
+// 提取 json_item 的数字, 并将解析结果放到 (target_var) 变量中. 支持解析数字类型和字符串类型的数字值.
+// 注意: 这个 json_item 参数是 cJSON* 类型的指针变量.
+// 示例: int my_value = 0; _CJSON_EXTRACT_INT(my_value, json_item);
 #define _CJSON_EXTRACT_INT(target_var, json_item)                                                                     \
     if (cJSON_Number == (json_item)->type)                                                                            \
     {                                                                                                                 \
@@ -156,12 +174,15 @@ typedef _TMP_STRUCT_CJSON_HOOKS cJSON_Hooks;
 #define _INTERNAL_1_CJSON_EXTRACT_INT_BY_KEY(LINE_NUM, target_var, json_node, key) \
     _INTERNAL_2_CJSON_EXTRACT_INT_BY_KEY(LINE_NUM, target_var, json_node, key)
 
-// 提取 json node中指定 key 的数字. 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key"
+// 提取 json_node 中指定 key 的字段数字值.
+// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key".
+// 示例: 例如 { "params": { "id":1234, "name":"test" } }, 现在有"params"节点 node_params, 想提取 "id" 字段的数字值:
+// int my_id = 0; _CJSON_EXTRACT_INT_BY_KEY(my_id, node_params, id);
 #define _CJSON_EXTRACT_INT_BY_KEY(target_var, json_node, key) \
     _INTERNAL_1_CJSON_EXTRACT_INT_BY_KEY(__LINE__, target_var, json_node, key)
 // =========== END: 从 JSON节点 中找出指定 "key" 字段, 并获取该字段值 ===========
 
-//================================
+// =========== START: 从 json_node 中找出指定 "key" 字段, 并获取该字段值, 找不到指定的 key 则 break ===========
 #define _INTERNAL_2_CJSON_EXTRACT_INT_BY_KEY_OR_BREAK(LINE_NUM, target_var, json_node, key) \
     _INTERNAL_1_CJSON_EXTRACT_INT_BY_KEY(LINE_NUM, target_var, json_node, key);             \
     if (NULL == _item_##key_##LINE_NUM)                                                     \
@@ -172,16 +193,17 @@ typedef _TMP_STRUCT_CJSON_HOOKS cJSON_Hooks;
 #define _INTERNAL_1_CJSON_EXTRACT_INT_BY_KEY_OR_BREAK(LINE_NUM, target_var, json_node, key) \
     _INTERNAL_2_CJSON_EXTRACT_INT_BY_KEY_OR_BREAK(LINE_NUM, target_var, json_node, key)
 
-// 提取 json node中指定 key 的数字, 找不到指定的 key 则 break, 适合在 循环体 或 do_while 中使用.
-// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key"
+// 提取 json_node中指定 key 的数字, 找不到指定的 key 则 break, 适合在 循环体 或 do_while 中使用.
+// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key".
+// 例如 { "params": { "id":1234, "name":"test" } }, 现在有"params"节点 node_params, 想提取 "id" 字段的数字值:
+// int my_id = 0; _CJSON_EXTRACT_INT_BY_KEY_OR_BREAK(my_id, node_params, id);
 #define _CJSON_EXTRACT_INT_BY_KEY_OR_BREAK(target_var, json_node, key) \
     _INTERNAL_1_CJSON_EXTRACT_INT_BY_KEY_OR_BREAK(__LINE__, target_var, json_node, key)
-//================================
+// =========== END: 从 json_node 中找出指定 "key" 字段, 并获取该字段值, 找不到指定的 key 则 break ===========
 //======================================================================================================================================
 
 //======================================================================================================================================
-//================================
-// 提取 json node中指定 key 的 value 字符串
+// =========== START: 提取 json_node 中指定 key 的 value 字符串, 并复制到 target_var 变量中 ===========
 #define _INTERNAL_2_CJSON_EXTRACT_STR_BY_KEY(LINE_NUM, target_var, target_var_size, json_node, key)                                \
     cJSON *_item_##key_##LINE_NUM = cJSON_GetObjectItem((json_node), #key);                                                        \
     const bool _##key##_##LINE_NUM##_not_exists = (NULL == _item_##key_##LINE_NUM || NULL == _item_##key_##LINE_NUM->valuestring); \
@@ -202,13 +224,15 @@ typedef _TMP_STRUCT_CJSON_HOOKS cJSON_Hooks;
 #define _INTERNAL_1_CJSON_EXTRACT_STR_BY_KEY(LINE_NUM, target_var, target_var_size, json_node, key) \
     _INTERNAL_2_CJSON_EXTRACT_STR_BY_KEY(LINE_NUM, target_var, target_var_size, json_node, key)
 
-// 提取 json node中指定 key 的 value 字符串
-// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key"
+// 提取 json node中指定 key 的 value 字符串, 并复制到 target_var 变量中.
+// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key".
+// 示例: 例如 { "params": { "id":1234, "name":"test" } }, 现在有params节点 node_params, 想提取 "name" 字段的字符串值:
+// char name_buf[64]; _CJSON_EXTRACT_STR_BY_KEY(name_buf, sizeof(name_buf), node_params, name);
 #define _CJSON_EXTRACT_STR_BY_KEY(target_var, target_var_size, json_node, key) \
     _INTERNAL_1_CJSON_EXTRACT_STR_BY_KEY(__LINE__, target_var, target_var_size, json_node, key)
-//================================
+// =========== END: 提取 json node中指定 key 的 value 字符串, 并复制到 target_var 变量中 ===========
 
-//================================
+// =========== START: 提取 json node中指定 key 的 value 字符串, 找不到指定的 key 则 break =========== 
 #define _INTERNAL_2_CJSON_EXTRACT_STR_BY_KEY_OR_BREAK(LINE_NUM, target_var, target_var_size, json_node, key) \
     _INTERNAL_1_CJSON_EXTRACT_STR_BY_KEY(LINE_NUM, target_var, target_var_size, json_node, key)              \
     if (_##key##_##LINE_NUM##_not_exists)                                                                    \
@@ -219,15 +243,17 @@ typedef _TMP_STRUCT_CJSON_HOOKS cJSON_Hooks;
 #define _INTERNAL_1_CJSON_EXTRACT_STR_BY_KEY_OR_BREAK(LINE_NUM, target_var, target_var_size, json_node, key) \
     _INTERNAL_2_CJSON_EXTRACT_STR_BY_KEY_OR_BREAK(LINE_NUM, target_var, target_var_size, json_node, key)
 
-// 提取 json node中指定 key 的value字符串, 找不到指定的 key 则 break
-// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key"
+// 提取 json node中指定 key 的value字符串, 并复制到 (target_var) 变量中, 找不到指定的 key 则 break
+// 注意: 这个 key 参数不要加双引号, 比如直接传 key 而不是 "key".
+// 例如 { "params": { "id":1234, "name":"test" } }, 现在有params节点 node_params, 想提取 "name" 字段的字符串值:
+// char name_buf[64]; _CJSON_EXTRACT_STR_BY_KEY_OR_BREAK(name_buf, sizeof(name_buf), node_params, name);
 #define _CJSON_EXTRACT_STR_BY_KEY_OR_BREAK(target_var, target_var_size, json_node, key) \
     _INTERNAL_1_CJSON_EXTRACT_STR_BY_KEY_OR_BREAK(__LINE__, target_var, target_var_size, json_node, key)
-//================================
+// =========== END: 提取 json node中指定 key 的 value 字符串, 找不到指定的 key 则 break =========== 
 
 //======================================================================================================================================
 
-// 清理 cjson node_root(根节点)
+// 清理 cjson node_root(根节点) 并置为 NULL
 #define _CJSON_CLEANUP(node_root) \
     if (NULL != (node_root))      \
     {                             \

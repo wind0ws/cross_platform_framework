@@ -14,6 +14,11 @@ prj_extract_version() # <-- extract PRJ_VERSION variable from src/version.h
 
 project(my_prj VERSION ${PRJ_VERSION} LANGUAGES C CXX)
 message(STATUS "PROJECT => ${PROJECT_NAME} : ${PROJECT_VERSION}")
+# ---------------------------------------------------------------------------------------
+# Compiler config：语言标准 + 特性检测。
+# 必须在 project() 之后 include（依赖 project() 填充的 CMAKE_CXX_COMPILE_FEATURES）。
+# ---------------------------------------------------------------------------------------
+include(cmake/compiler_config.cmake)
 
 # include(GNUInstallDirs)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -24,25 +29,6 @@ set(CMAKE_COLOR_MAKEFILE ON)
 
 # show version of toochain.
 prj_show_toolchain_version()
-
-# ---------------------------------------------------------------------------------------
-# Compiler config
-# ---------------------------------------------------------------------------------------
-if(NOT CMAKE_C_STANDARD)
-  message(STATUS "now define CMAKE_C_STANDARD for project")
-  set(CMAKE_C_STANDARD 11)
-  set(CMAKE_C_STANDARD_REQUIRED ON)
-endif()
-
-if(NOT CMAKE_CXX_STANDARD)
-  message(STATUS "now define CMAKE_CXX_STANDARD for project")
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif()
-
-set(PRJ_C_STANDARD ${CMAKE_C_STANDARD})
-set(PRJ_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-message(STATUS "PRJ_C_STANDARD=${PRJ_C_STANDARD}, PRJ_CXX_STANDARD=${PRJ_CXX_STANDARD}")
 
 # ---------------------------------------------------------------------------------------
 # Set PRJ_MASTER_PROJECT to ON if we are building this project
@@ -66,7 +52,6 @@ message(STATUS "PRJ_MASTER_PROJECT => ${PRJ_MASTER_PROJECT}")
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif()
-
 message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 
 # ---------------------------------------------------------------------------------------
@@ -90,35 +75,16 @@ set(PRJ_OUTPUT_DIR ${PRJ_SOURCE_DIR}/tool/deploy CACHE STRING "")
 # For example, Visual Studio supports folders.
 set(PRJ_IDE_FOLDER ${PRJ_OUTPUT_DIR} CACHE STRING "")
 message(STATUS "root of project: PRJ_SOURCE_DIR => ${PRJ_SOURCE_DIR}")
+# ---------------------------------------------------------------------------------------
+# setup PRJ_REPO_BRANCH / PRJ_REPO_REVISION, and also add_definitions to code.
+# ---------------------------------------------------------------------------------------
+prj_setup_repo_info(${PRJ_SOURCE_DIR})
 
 # ---------------------------------------------------------------------------------------
 # now we can include platform_detector.cmake,
 # because we have defined PRJ_SOURCE_DIR/PRJ_OUTPUT_DIR.
 # ---------------------------------------------------------------------------------------
 include(cmake/platform_detector.cmake)
-
-# make sure __cplusplus is defined when using msvc and enable parallel build
-if(MSVC)
-  string(APPEND CMAKE_CXX_FLAGS " /Zc:__cplusplus /MP")
-endif()
-
-#
-# This property specifies whether compiler specific extensions should be used.
-# For some compilers, this results in adding a flag such as -std=gnu++11 instead of -std=c++11 to the compile line.
-# This property is ON by default. The basic C++ standard level is controlled by the CXX_STANDARD target property.
-#
-# here we disable it.
-#
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-if(CMAKE_SYSTEM_NAME MATCHES "CYGWIN" OR CMAKE_SYSTEM_NAME MATCHES "MSYS")
-  set(CMAKE_CXX_EXTENSIONS ON)
-endif()
-
-# ---------------------------------------------------------------------------------------
-# setup PRJ_REPO_BRANCH / PRJ_REPO_REVISION, and also add_definitions to code.
-# ---------------------------------------------------------------------------------------
-prj_setup_repo_info(${PRJ_SOURCE_DIR})
 
 # ---------------------------------------------------------------------------------------
 # Build options
@@ -127,16 +93,35 @@ prj_setup_repo_info(${PRJ_SOURCE_DIR})
 option(PRJ_BUILD_ALL_IN_ONE "Build all in one library" ON)
 
 # build shared option
-option(PRJ_BUILD_SHARED "Build shared library" OFF)
-option(BUILD_SHARED_LIBS "Build shared library, alias for PRJ_BUILD_SHARED" ${PRJ_BUILD_SHARED})
+option(PRJ_BUILD_SHARED "Build shared library" ON)
+set(BUILD_SHARED_LIBS ${PRJ_BUILD_SHARED} CACHE BOOL "Build shared library, alias for PRJ_BUILD_SHARED")
 
-if(PRJ_BUILD_SHARED OR BUILD_SHARED_LIBS)
-  set(PRJ_BUILD_SHARED ON)
-  set(BUILD_SHARED_LIBS ON)
+# if not same, error occurred.
+if(NOT(PRJ_BUILD_SHARED STREQUAL BUILD_SHARED_LIBS))
+  message(FATAL_ERROR
+    "PRJ_BUILD_SHARED (${PRJ_BUILD_SHARED}) and BUILD_SHARED_LIBS (${BUILD_SHARED_LIBS}) must have the same value!\n"
+    "Please set them to the same value (both ON or both OFF)."
+  )
 endif()
 
 # testing options
-option(PRJ_BUILD_TESTS "Build tests" OFF)
+# 单元测试：Debug 默认开，Release 默认关（仅开发验证）
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(_DEFAULT_BUILD_UNIT_TESTS ON)
+else()
+  set(_DEFAULT_BUILD_UNIT_TESTS OFF)
+endif()
+option(PRJ_BUILD_UNIT_TESTS "Build unit tests" ${_DEFAULT_BUILD_UNIT_TESTS})
+
+# 工具和示例：始终默认开（发版验证和对外交付必需）
+option(PRJ_BUILD_TOOLS "Build tools and examples (vtn_api_test, vtn_example)" ON)
+
+# 向后兼容：PRJ_BUILD_TESTS 映射到 PRJ_BUILD_UNIT_TESTS
+# 若用户显式设置了 PRJ_BUILD_TESTS，同步到新开关
+if(DEFINED CACHE{PRJ_BUILD_TESTS})
+  set(PRJ_BUILD_UNIT_TESTS ${PRJ_BUILD_TESTS} CACHE BOOL "Build unit tests" FORCE)
+  message(WARNING "PRJ_BUILD_TESTS is deprecated, use PRJ_BUILD_UNIT_TESTS instead. Auto-synced value: ${PRJ_BUILD_TESTS}")
+endif()
 
 # not used at current now.
 option(PRJ_MINIMIZE "Minimize project library size for mobile deploy" OFF)
@@ -168,6 +153,24 @@ endif(PRJ_ENABLE_ASAN)
 
 # =================== ASan options end ======================================
 
+# =================== 动态库 strip options start ============================
+# 链接期 strip 动态库符号以精简产物体积。默认策略：Debug 版保留全部符号供排查，
+# 非 Debug 版彻底 strip。可用 -DPRJ_STRIP_SHARED_LIB_MODE=<none|debug|all> 覆盖：
+#   none  : 不 strip，保留全部符号(含 .debug_* DWARF)，用于在非 Debug 版排查问题。
+#   debug : 仅去 DWARF 调试段，保留 .symtab 函数名表(崩溃回溯 addr2line 可用)。
+#   all   : 去调试段与符号表，产物最小(非 Debug 默认值)。
+# 说明：仅对 GNU/Clang(类 ld) 生效，MSVC 无 --strip-* 标志；ASAN 构建强制不 strip。
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(_DEFAULT_STRIP_SHARED_LIB_MODE "none")
+else()
+  set(_DEFAULT_STRIP_SHARED_LIB_MODE "all")
+endif()
+
+set(PRJ_STRIP_SHARED_LIB_MODE "${_DEFAULT_STRIP_SHARED_LIB_MODE}" CACHE STRING
+  "Strip shared lib symbols at link time: none|debug|all (default: none for Debug, all otherwise)")
+set_property(CACHE PRJ_STRIP_SHARED_LIB_MODE PROPERTY STRINGS none debug all)
+# =================== 动态库 strip options end ==============================
+
 # warning options
 option(PRJ_BUILD_WARNINGS "Enable compiler warnings" OFF)
 
@@ -181,6 +184,17 @@ option(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS "export dll ALL_SYMBOLS on windows" OFF)
 # third_party lib shared options: if ON, use third_party shared lib.
 option(PRJ_THIRD_LIB_SHARED "use shared lib on third_party" OFF)
 message(STATUS "PRJ_THIRD_LIB_SHARED=${PRJ_THIRD_LIB_SHARED}")
+
+# ---------------------------------------------------------------------------------------
+# 依赖库拷贝模式(拷贝第三方依赖库到部署 bin 目录时生效)：
+#   auto  -> 默认。若本项目产物是动态库(PRJ_BUILD_SHARED=ON)，静态依赖库已被链入动态库，
+#            运行期无需再拷贝，故只拷贝动态依赖库；产物是静态库时仍拷贝全部依赖库。
+#   force -> 强制拷贝所有依赖库(静态库 + 动态库)，即历史行为。
+# 注：仅影响"拷贝到部署目录"，不影响链接(链接始终使用依赖库全路径)。
+# ---------------------------------------------------------------------------------------
+set(PRJ_DEP_LIB_COPY_MODE "auto" CACHE STRING "dependency lib copy mode: auto or force")
+set_property(CACHE PRJ_DEP_LIB_COPY_MODE PROPERTY STRINGS auto force)
+message(STATUS "PRJ_DEP_LIB_COPY_MODE=${PRJ_DEP_LIB_COPY_MODE}")
 
 # =================== PRJ_HIDDEN_SYMBOLS options start ======================================
 if(PRJ_MASTER_PROJECT AND NOT(CMAKE_BUILD_TYPE STREQUAL "Debug"))
@@ -239,20 +253,6 @@ message(STATUS " CMAKE_CXX_VISIBILITY_PRESET=${CMAKE_CXX_VISIBILITY_PRESET}")
 message(STATUS " CMAKE_VISIBILITY_INLINES_HIDDEN=${CMAKE_VISIBILITY_INLINES_HIDDEN}")
 
 # ---------------------------------------------------------------------------------------
-# cxx_variadic_templates: 在 C++11 中，引入了可变模板（Variadic Templates）的概念，
-# 它允许函数或类模板接受可变数量的类型参数
-# ---------------------------------------------------------------------------------------
-list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_variadic_templates" _index_for_cxx_variadic_templates)
-
-if(${_index_for_cxx_variadic_templates} GREATER -1)
-  # Use cxx_variadic_templates instead of more appropriate cxx_std_11 for
-  # compatibility with older CMake versions.
-  set(PRJ_REQUIRED_FEATURES cxx_variadic_templates)
-endif()
-
-message(STATUS "Required features: ${PRJ_REQUIRED_FEATURES}")
-
-# ---------------------------------------------------------------------------------------
 # auto setup install include dir.
 # ---------------------------------------------------------------------------------------
 if(DEFINED ${CMAKE_INSTALL_INCLUDEDIR})
@@ -279,8 +279,8 @@ if(PRJ_SYSTEM_HEADERS)
   set(PRJ_SYSTEM_HEADERS_ATTRIBUTE SYSTEM)
 endif()
 
-if(PRJ_BUILD_TESTS)
-  message(STATUS "Generating tests")
+if(PRJ_BUILD_UNIT_TESTS OR PRJ_BUILD_TOOLS)
+  message(STATUS "Generating tests (UNIT_TESTS=${PRJ_BUILD_UNIT_TESTS}, TOOLS=${PRJ_BUILD_TOOLS})")
   enable_testing()
 endif()
 
@@ -301,7 +301,7 @@ set(PRJ_DEBUG_POSTFIX "" CACHE STRING "Debug library postfix.")
 # default PRJ_COMPILE_OPTIONS(for C) and PRJ_CXX_COMPILE_OPTIONS(for CXX)
 # ---------------------------------------------------------------------------------------
 # PRJ_WERROR: set 1 to treat warning as error.
-# macro "get_warnings_copts" on CompilerWarnings.cmake
+# macro "get_warnings_copts" on compiler_warnings.cmake
 set(PRJ_COMPILE_OPTIONS "")
 set(PRJ_CXX_COMPILE_OPTIONS "")
 get_warnings_copts(${PRJ_WERROR} PRJ_COMPILE_OPTIONS PRJ_CXX_COMPILE_OPTIONS)
@@ -322,4 +322,3 @@ message(STATUS " PRJ_COMPILE_OPTIONS: ${PRJ_COMPILE_OPTIONS} \n PRJ_CXX_COMPILE_
 define_dependency_var()
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src/")
-

@@ -52,9 +52,6 @@ IF !ERR_CODE! NEQ 0 (
 @echo ========================================================
 @echo.
 
-:: ON/OFF: ON for SHARED libs.
-set BUILD_SHARED_LIBS=ON
-
 set BUILD_ABI=%1
 if "%BUILD_ABI%" EQU "" (
   @echo Now you should input build abi.
@@ -93,7 +90,7 @@ if "!EXTRA_PARAMS:~0,2!" == "-D" (
     @echo "no EXTRA_PARAMS. compile with default params."
   )
 )
-set CMAKE_EXTEND_ARGS= -DCMAKE_BUILD_TYPE=!BUILD_TYPE! -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DPRJ_BUILD_ALL_IN_ONE=ON -DPRJ_BUILD_TESTS=ON !EXTRA_PARAMS! 
+set CMAKE_EXTEND_ARGS= -DCMAKE_BUILD_TYPE=!BUILD_TYPE! !EXTRA_PARAMS! 
 @echo.
 @echo origin: 
 @echo   CMAKE_EXTEND_ARGS=!CMAKE_EXTEND_ARGS!

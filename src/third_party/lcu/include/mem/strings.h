@@ -166,7 +166,9 @@ extern "C"
 	 * @param original: the str to replace
 	 * @param pattern: the replace pattern
 	 * @param replacement: replace pattern to this
-	 * @return replaced string, this memory on heap, need free after use!
+	 * @return replaced string, or NULL on failure / empty pattern / overflow.
+	 *
+	 * @note Ownership is transferred to the caller. Release it with free().
 	 */
 	char *strreplace(char const *const original,
 					 char const *const pattern, char const *const replacement);
@@ -178,9 +180,13 @@ extern "C"
 	 *                        this value will rewrite to real split numbers after return.
 	 * @param src_str: the origin str that you want to split
 	 * @param delimiter: the string of delimiter, for example ","
+	 *
+	 * @note src_str MUST be writable. This function modifies src_str by replacing
+	 *       delimiter bytes with NUL (strtok_r behavior). Do NOT pass string literals
+	 *       or const buffers. Returned token pointers alias into src_str.
 	 */
 	void strsplit(char *recv_splited_str[], size_t *p_splited_nums,
-				  const char *src_str, const char *delimiter);
+				  char *src_str, const char *delimiter);
 
 	/**
 	 * trim string.

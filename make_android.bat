@@ -1,4 +1,4 @@
-call setup_env.bat %*
+call .\setup_env.bat %*
 if %ERRORLEVEL% NEQ 0 (
   @echo error on setup_env, check it.
   @exit /b 2
@@ -117,7 +117,7 @@ mkdir "%BUILD_DIR:"=%"
             -DCMAKE_TOOLCHAIN_FILE=!ANDROID_TOOLCHAIN_FILE! ^
             -DCMAKE_MAKE_PROGRAM=%NINJA_BIN%                ^
             %CMAKE_EXTEND_ARGS%
-::            -DBUILD_SHARED_LIBS=ON -DPRJ_BUILD_ALL_IN_ONE=ON -DPRJ_BUILD_TESTS=ON
+::            -DBUILD_SHARED_LIBS=ON -DPRJ_BUILD_ALL_IN_ONE=ON -DPRJ_BUILD_UNIT_TESTS=ON
 
 set ERR_CODE=%ERRORLEVEL%
 IF !ERR_CODE! NEQ 0 (

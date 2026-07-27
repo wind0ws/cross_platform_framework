@@ -1,12 +1,20 @@
+.worktrees/
+.codegraph
 *.iml
 .gradle
 .svn
+.turbo
+.gitee
+.shiftengine
+settings.local.json
 #ignore temp doc
 ~$*.doc*
 ~$*.xls*
 ~$*.ppt*
-/local.properties
+*.local.md
 local.properties
+.ai/plan
+.ai/analysis
 .externalNativeBuild
 .cxx
 .DS_Store
@@ -16,7 +24,8 @@ local.properties
 .kotlin/
 .temp/
 .tmp/
-__pycache__/
+.pytest_cache
+__pycache__
 /build
 /captures
 CMakeFiles
@@ -28,6 +37,8 @@ cmake-build-*/
 *.bak
 *.opensdf
 *.ipch
+**/toolchains/*.sh
+bin/output/
 out/
 tool/backup/
 tool/output/
@@ -49,3 +60,14 @@ tool/deploy/res/*
 device_license.dat
 # but keep track on res/prj/
 !/tool/deploy/res/prj/
+# 临时交叉编译平台 (toolchain 与对应的平台库不入库)
+cmake/toolchains/a7_*.cmake
+cmake/toolchains/gcc*.toolchain.cmake
+cmake/toolchains/arm*.cmake
+cmake/toolchains/mr536.toolchain.cmake
+cmake/toolchains/rockchip1240.toolchain.cmake
+src/third_party/*/lib/a7_*/
+src/third_party/*/lib/gcc*/
+src/third_party/*/lib/arm*/
+src/third_party/*/lib/mr536/
+src/third_party/*/lib/rockchip1240/

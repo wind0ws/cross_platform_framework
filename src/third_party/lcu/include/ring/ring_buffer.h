@@ -32,6 +32,23 @@
 extern "C" {
 #endif
 
+	/**
+	 * @file ring_buffer.h
+	 * @brief Lock-free single-producer single-consumer (SPSC) ring buffer
+	 *
+	 * @warning Thread Safety Contract:
+	 *   - **Single Producer, Single Consumer ONLY**: One thread may call write
+	 *     operations (ring_buffer_write), and one (possibly different) thread
+	 *     may call read operations (ring_buffer_read, ring_buffer_peek, etc.).
+	 *   - **Multiple producers or multiple consumers are NOT SUPPORTED**: Concurrent
+	 *     writes or concurrent reads will cause data corruption and race conditions.
+	 *   - **ring_buffer_clear is NOT thread-safe**: Call only when no read/write
+	 *     operations are in progress (e.g., during init or after synchronized stop).
+	 *
+	 * @note For multi-producer or multi-consumer scenarios, use msg_queue or
+	 *       msg_queue_handler which provide internal locking.
+	 */
+
 	typedef struct _ring_buffer_t* ring_buffer_handle;
 
 	/**
@@ -52,6 +69,10 @@ extern "C" {
 	 *
 	 * @param[in] buf_size RingBuffer size, must be pow of 2.
 	 *                     if not, will change size to previous pow of it automatically.
+	 *
+	 * @warning P2-7: `buf` MUST be aligned to at least alignof(uint32_t) (typically 4 bytes).
+	 *          The struct stored at the start of `buf` contains atomic uint32_t fields;
+	 *          unaligned access on strict-alignment architectures (ARMv7 etc.) triggers SIGBUS.
 	 *
 	 * @return RingBuffer pointer
 	 */

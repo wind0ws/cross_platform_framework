@@ -93,6 +93,17 @@ MACRO(copy_file_on_post_build _target _src_files)
 	ENDFOREACH(_file_path)
 ENDMACRO(copy_file_on_post_build)
 
+MACRO(copy_file_on_post_build_to_dir _target _source_file _target_relative_path)
+  message(STATUS "\"${_target}\" copy_file_on_post_build_to_dir file_path => \"${_source_file}\", relative_path => \"${_target_relative_path}\"")
+  add_custom_command(TARGET ${_target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+      "$<TARGET_FILE_DIR:${_target}>/${_target_relative_path}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${_source_file}"
+      "$<TARGET_FILE_DIR:${_target}>/${_target_relative_path}"
+    COMMENT "copy ${_source_file} for ${_target}")
+ENDMACRO(copy_file_on_post_build_to_dir)
+
 
 # 注意这里调用这个macro时，_src_files 这里传入的应该是list的变量名，
 # 而不是其引用值，因为接下来在另一个macro foreach list会对其二次解引用。
@@ -222,8 +233,8 @@ endmacro()
 # define_dependency_var: define _PRJ_DEPENDENCY_THIRD_LIBS and _PRJ_DEPENDENCY_THIRD_ASSETS var for project
 #
 macro(define_dependency_var)
-  if ((DEFINED _PRJ_DEPENDENCY_THIRD_LIBS) OR (DEFINED _PRJ_DEPENDENCY_THIRD_ASSETS))
-    message(FATAL_ERROR "you are already defined \"_PRJ_DEPENDENCY_THIRD_LIBS\" OR \"_PRJ_DEPENDENCY_THIRD_ASSETS\"")
+  if ((DEFINED _PRJ_DEPENDENCY_THIRD_LIBS) OR (DEFINED _PRJ_DEPENDENCY_THIRD_ASSETS) OR (DEFINED _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS))
+    message(FATAL_ERROR "you are already defined \"_PRJ_DEPENDENCY_THIRD_LIBS\" OR \"_PRJ_DEPENDENCY_THIRD_ASSETS\" OR \"_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS\"")
   endif()
   # ---------------------------------------------------------------------------------------
   # 初始化第三方库依赖列表和依赖资源列表, 后面自行查找的第三方库会被加入到此表中,
@@ -232,7 +243,47 @@ macro(define_dependency_var)
   # ---------------------------------------------------------------------------------------
   set(_PRJ_DEPENDENCY_THIRD_LIBS "")
   set(_PRJ_DEPENDENCY_THIRD_ASSETS "")
+  set(_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS "")
 endmacro(define_dependency_var)
+
+
+#
+# filter_dependency_libs_by_copy_mode: 依据依赖库拷贝模式，过滤出真正需要拷贝到部署目录的依赖库。
+#   _in_list_var:  输入依赖库列表变量名(全路径, 含静态库/动态库)。
+#   _out_list_var: 输出过滤后的依赖库列表变量名。
+#
+# 规则:
+#   - PRJ_DEP_LIB_COPY_MODE=force              : 拷贝全部依赖库(历史行为)。
+#   - PRJ_DEP_LIB_COPY_MODE=auto 且本项目产物为动态库: 静态依赖库已链入动态库, 运行期无需拷贝,
+#                                                 仅保留动态依赖库(.so/.dylib/.dll);
+#                                                 MSVC 的导入库(.lib) 仅链接期需要, 一并剔除。
+#   - PRJ_DEP_LIB_COPY_MODE=auto 且本项目产物为静态库: 消费方需静态依赖库参与链接, 保留全部。
+#
+macro(filter_dependency_libs_by_copy_mode _in_list_var _out_list_var)
+  set(_copy_mode "${PRJ_DEP_LIB_COPY_MODE}")
+  if("x${_copy_mode}" STREQUAL "x")
+    set(_copy_mode "auto")
+  endif()
+  string(TOLOWER "${_copy_mode}" _copy_mode)
+
+  set(${_out_list_var} "")
+  if(("${_copy_mode}" STREQUAL "auto") AND PRJ_BUILD_SHARED)
+    # 静态库后缀集合: 非 MSVC 为 .a; MSVC 下 .lib 既是静态库也是 dll 导入库, 均无需拷贝到运行目录。
+    set(_static_suffixes "${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    foreach(_dep_lib ${${_in_list_var}})
+      get_filename_component(_dep_ext "${_dep_lib}" LAST_EXT)
+      list(FIND _static_suffixes "${_dep_ext}" _is_static)
+      if(_is_static GREATER -1)
+        message(STATUS "  [copy-mode=auto,shared] skip static dep lib: ${_dep_lib}")
+      else()
+        list(APPEND ${_out_list_var} "${_dep_lib}")
+      endif()
+    endforeach()
+  else()
+    # force 模式, 或 auto 模式下本项目产物为静态库: 全部拷贝。
+    set(${_out_list_var} ${${_in_list_var}})
+  endif()
+endmacro(filter_dependency_libs_by_copy_mode)
 
 
 #
@@ -244,18 +295,20 @@ endmacro(define_dependency_var)
 #   _target_base_relative_path: asset copy to where, the base relative path will append to target dir
 #
 macro(copy_dependency_lib_and_asset _target _target_base_relative_path)
-  if ((NOT _PRJ_DEPENDENCY_THIRD_LIBS) AND (NOT _PRJ_DEPENDENCY_THIRD_ASSETS))
-    message(WARNING " maybe \"_PRJ_DEPENDENCY_THIRD_LIBS\" and \"_PRJ_DEPENDENCY_THIRD_ASSETS\" not defined, OR nothing we need copy!")
+  if ((NOT _PRJ_DEPENDENCY_THIRD_LIBS) AND (NOT _PRJ_DEPENDENCY_THIRD_ASSETS) AND (NOT _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS))
+    message(WARNING " maybe \"_PRJ_DEPENDENCY_THIRD_LIBS\" and \"_PRJ_DEPENDENCY_THIRD_ASSETS\" and \"_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS\" not defined, OR nothing we need copy!")
   endif()
   # ---------------------------------------------------------------------------------------
   # 拷贝第三方库文件到部署目录
   # ---------------------------------------------------------------------------------------
-  list(LENGTH _PRJ_DEPENDENCY_THIRD_LIBS _PRJ_DEPENDENCY_THIRD_LIBS_LENGTH)
-  message(STATUS "_PRJ_DEPENDENCY_THIRD_LIBS(${_PRJ_DEPENDENCY_THIRD_LIBS_LENGTH}) => ${_PRJ_DEPENDENCY_THIRD_LIBS}")
-  if (_PRJ_DEPENDENCY_THIRD_LIBS_LENGTH GREATER 0)
-    message(STATUS "will copy _PRJ_DEPENDENCY_THIRD_LIBS for you")
+  # 依据拷贝模式过滤出真正需要拷贝的依赖库(auto 模式下动态库产物会剔除静态依赖库)
+  filter_dependency_libs_by_copy_mode(_PRJ_DEPENDENCY_THIRD_LIBS _PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY)
+  list(LENGTH _PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY _PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY_LENGTH)
+  message(STATUS "copy mode=${PRJ_DEP_LIB_COPY_MODE}, shared=${PRJ_BUILD_SHARED}, dep libs to copy(${_PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY_LENGTH}) => ${_PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY}")
+  if (_PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY_LENGTH GREATER 0)
+    message(STATUS "will copy _PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY for you")
     # 这里用的是变量名，而没有引用其值。因为他是macro，在macro里会对其解引用
-    copy_file_on_post_build(${_target} _PRJ_DEPENDENCY_THIRD_LIBS)
+    copy_file_on_post_build(${_target} _PRJ_DEPENDENCY_THIRD_LIBS_TO_COPY)
   endif()
   
   # ---------------------------------------------------------------------------------------
@@ -274,6 +327,24 @@ macro(copy_dependency_lib_and_asset _target _target_base_relative_path)
       set(_tgt_relative_path "${_target_base_relative_path}/${_key}")
       message(STATUS "third_moudle_dir_name = ${_key}, asset_dir = ${_value}, relative_path = ${_tgt_relative_path}")
       copy_dir_on_post_build(${_target} ${_tgt_relative_path} ${_value})
+    endforeach()
+  endif()
+
+  # ---------------------------------------------------------------------------------------
+  # 拷贝第三方库的runtime库到部署目录
+  # ---------------------------------------------------------------------------------------
+  list(LENGTH _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS_LENGTH)
+  message(STATUS "_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS(${_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS_LENGTH}) => ${_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS}")
+  if (_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS_LENGTH GREATER 0)
+    message(STATUS "will copy _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS for you")
+    foreach(entry ${_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS})
+      string(REPLACE "|" ";" runtime_lib_info ${entry})
+      list(GET runtime_lib_info 0 _runtime_module_name)
+      list(GET runtime_lib_info 1 _runtime_platform_dir)
+      list(GET runtime_lib_info 2 _runtime_lib_file)
+      set(_runtime_tgt_relative_path "${_target_base_relative_path}/${_runtime_module_name}/lib/${_runtime_platform_dir}")
+      message(STATUS "third_runtime_module_dir_name = ${_runtime_module_name}, runtime_lib = ${_runtime_lib_file}, relative_path = ${_runtime_tgt_relative_path}")
+      copy_file_on_post_build_to_dir(${_target} ${_runtime_lib_file} ${_runtime_tgt_relative_path})
     endforeach()
   endif()
 endmacro(copy_dependency_lib_and_asset)
@@ -328,16 +399,34 @@ macro(get_lib_prefix_suffix _shared)
 endmacro(get_lib_prefix_suffix)
 
 #
-# standardization_lib_name: for remove suffix of "_a" if it has.
+# standardization_lib_name. 
+#  标准化库名称变量名，去除 "lib" 前缀和 "_a", "_static", "_dll" 后缀
 #   _name_var: the variable of name.
 #
 macro(standardization_lib_name _name_var)
-  # 标准化库名称变量名，去除 "_a" 这种后缀
-  if(${${_name_var}} MATCHES "\_a$") # <-- 判断库名字是否以"_a"为结尾，去除库名字结尾的 _a ，用于建立变量: 库名字-lib 
-    string(REPLACE "_a.r" "" ${_name_var} "${${_name_var}}.r") # <-- trick: 只去除结尾的"_a"，不去库名字中间的
-  else()
-    set(${_name_var} ${${_name_var}})
+  set(_lib_name ${${_name_var}})
+  
+  # 去除 "lib" 前缀
+  if(_lib_name MATCHES "^lib")
+    string(REGEX REPLACE "^lib" "" _lib_name "${_lib_name}")
   endif()
+  
+  # 去除 "_a" 后缀
+  if(_lib_name MATCHES "_a$")
+    string(REGEX REPLACE "_a$" "" _lib_name "${_lib_name}")
+  endif()
+  
+  # 去除 "_static" 后缀
+  if(_lib_name MATCHES "_static$")
+    string(REGEX REPLACE "_static$" "" _lib_name "${_lib_name}")
+  endif()
+  
+  # 去除 "_dll" 后缀
+  if(_lib_name MATCHES "_dll$")
+    string(REGEX REPLACE "_dll$" "" _lib_name "${_lib_name}")
+  endif()
+  
+  set(${_name_var} ${_lib_name})
 endmacro(standardization_lib_name)
 
 #
@@ -386,13 +475,24 @@ macro(find_lib _lib_name _shared _lib_package_dir _lib_relative_dir_list)
 
     set(_lookup_lib_succeed 0)
     if(NOT ${_shared})
-      # 目标为静态库的情况下, 先尝试下 "库名字_a" 这种静态库存不存在. 若不存在, 后面再尝试 "库名字" 这种静态库.
+      # 目标为静态库的情况下, 先尝试下 "库名字_a" / "库名字_static" 这种静态库存不存在. 若不存在, 后面再尝试 "库名字" 这种静态库.
+      # 先尝试 "库名字_a"
       set(_lib_file_name ${_LIB_PREFIX}${_lib_name}_a${_LIB_SUFFIX})
       message(STATUS " ~~~ try lookup for ${_lib_file_name}")
       lookup_lib_in_dir(${_lib_name} ${_lib_file_name} _lib_dirs)
       # lookup_lib_in_dir 宏中的 _lookup_lib_succeed 需要传递出来
       if(EXISTS "${${_lib_name}-lib}")
         set(_lookup_lib_succeed 1)
+      endif()
+      
+      # 如果 "库名字_a" 不存在，再尝试 "库名字_static"
+      if(NOT ${_lookup_lib_succeed})
+        set(_lib_file_name ${_LIB_PREFIX}${_lib_name}_static${_LIB_SUFFIX})
+        message(STATUS " ~~~ try lookup for ${_lib_file_name}")
+        lookup_lib_in_dir(${_lib_name} ${_lib_file_name} _lib_dirs)
+        if(EXISTS "${${_lib_name}-lib}")
+          set(_lookup_lib_succeed 1)
+        endif()
       endif()
     endif()
     
@@ -528,29 +628,12 @@ macro(detect_visual_studio_version)
   endif()
 endmacro(detect_visual_studio_version)
 
-#
-# find_lib_easy: helper for find_lib. 
-#                find a library with a given name from the subdirectories of a given directory.
-#                
-# _lib_name: the name of lib that you want to lookup. eg: "curl"
-# _shared: ON/OFF. ON for find shared lib, OFF for find static lib.
-# _lib_package_dir: base folder for the "_lib_name". 
-#                   eg. "curl" maybe provide package dir with "${PRJ_THIRD_PARTY_DIR}/curl"
-#
-macro(find_lib_easy _lib_name _shared _lib_package_dir)
+macro(_setup_find_lib_easy_relative_dirs _out_var)
   if ((NOT DEFINED PLATFORM_TOLOWER) OR (NOT DEFINED PLATFORM_ABI_TOLOWER) 
       OR (NOT DEFINED CMAKE_BUILD_TYPE_TOLOWER))
     message(FATAL_ERROR "you must define PLATFORM_TOLOWER and PLATFORM_ABI_TOLOWER and CMAKE_BUILD_TYPE_TOLOWER")
   endif()
 
-  if("x${_lib_package_dir}" STREQUAL "x")
-    check_third_party_dir()
-    standardization_lib_name(_lib_name)
-    set(_lib_package_dir "${PRJ_THIRD_PARTY_DIR}/${_lib_name}")
-  elseif(NOT EXISTS "${_lib_package_dir}")
-    message(FATAL_ERROR " \"${_lib_package_dir}\" not exists! check it.")
-  endif()
-  
   set(_relative_dirs "lib/${PLATFORM_TOLOWER}/${PLATFORM_ABI_TOLOWER}_${CMAKE_BUILD_TYPE_TOLOWER}")
   if (NOT "${CMAKE_BUILD_TYPE_TOLOWER}" STREQUAL "release")
     list(APPEND _relative_dirs "lib/${PLATFORM_TOLOWER}/${PLATFORM_ABI_TOLOWER}_release")
@@ -560,14 +643,230 @@ macro(find_lib_easy _lib_name _shared _lib_package_dir)
   if (ANDROID AND (NOT "${ANDROID_STL}" STREQUAL "c++_static"))
     message(STATUS "detected your ANDROID_STL=${ANDROID_STL}")
     prepend_dir(${ANDROID_STL} _relative_dirs)
-  endif()
-  # msvc 平台优先查找指定vs版本文件夹. 例如 x32_debug_vs2022
-  if(MSVC)
+  elseif(MSVC)  # msvc 平台优先查找 指定vs版本文件夹. 例如 x32_debug_vs2022
     detect_visual_studio_version()
     prepend_dir(${_vs_name} _relative_dirs)
-  endif(MSVC)
+  endif()
 
+  set(${_out_var} ${_relative_dirs})
+endmacro(_setup_find_lib_easy_relative_dirs)
+
+macro(_reset_find_lib_easy_cache _lib_name)
+  unset(${_lib_name}-lib CACHE)
+  unset(${_lib_name}-lib-dir CACHE)
+  unset(${_lib_name}-dll CACHE)
+  unset(${_lib_name}-inc CACHE)
+  unset(${_lib_name}-asset CACHE)
+  unset(${_lib_name}-runtime-lib CACHE)
+  unset(${_lib_name}-runtime-lib-dir CACHE)
+  unset(${_lib_name}-runtime-module-dir CACHE)
+  unset(${_lib_name}-runtime-platform-dir CACHE)
+  unset(${_lib_name}-runtime-lib-file-name CACHE)
+  unset(${_lib_name}-runtime-res-relative-path CACHE)
+  unset(${_lib_name}-runtime-enabled CACHE)
+endmacro(_reset_find_lib_easy_cache)
+
+macro(_sync_find_lib_easy_dep_mode _lib_name _dep_mode)
+  if((DEFINED ${_lib_name}-dep-mode) AND (NOT "${${_lib_name}-dep-mode}" STREQUAL "${_dep_mode}"))
+    message(STATUS "${_lib_name} dependency mode changed: ${${_lib_name}-dep-mode} -> ${_dep_mode}, reset cached lookup vars")
+    _reset_find_lib_easy_cache(${_lib_name})
+  endif()
+  set(${_lib_name}-dep-mode "${_dep_mode}" CACHE INTERNAL "")
+endmacro(_sync_find_lib_easy_dep_mode)
+
+macro(_find_lib_easy_link_impl _lib_name _shared _lib_package_dir)
+  _setup_find_lib_easy_relative_dirs(_relative_dirs)
   message(STATUS "\"${_lib_name}\" will lookup in relative_dirs: ${_relative_dirs}")
   find_lib(${_lib_name} ${_shared} ${_lib_package_dir} _relative_dirs)
-endmacro(find_lib_easy)
+  set(${_lib_name}-runtime-enabled OFF CACHE INTERNAL "")
+endmacro(_find_lib_easy_link_impl)
 
+macro(_find_runtime_lib_easy _lib_name _lib_package_dir)
+  standardization_lib_name(_lib_name)
+
+  if("x${_lib_package_dir}" STREQUAL "x")
+    check_third_party_dir()
+    set(_lib_package_dir "${PRJ_THIRD_PARTY_DIR}/${_lib_name}")
+  elseif(NOT EXISTS "${_lib_package_dir}")
+    message(FATAL_ERROR " \"${_lib_package_dir}\" not exists! check it.")
+  endif()
+
+  get_filename_component(_lib_name_alias "${_lib_package_dir}" NAME)
+  _setup_find_lib_easy_relative_dirs(_relative_dirs)
+
+  if(MSVC)
+    set(_runtime_lib_prefix "")
+    set(_runtime_lib_suffix ".dll")
+  else()
+    set(_runtime_lib_prefix "${CMAKE_SHARED_LIBRARY_PREFIX}")
+    set(_runtime_lib_suffix "${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  endif()
+
+  set(_runtime_lib_file_name "${_runtime_lib_prefix}${_lib_name}${_runtime_lib_suffix}")
+  set(_runtime_lookup_succeed 0)
+  foreach(_lib_relative_dir ${_relative_dirs})
+    set(_runtime_lib_path "${_lib_package_dir}/${_lib_relative_dir}/${_runtime_lib_file_name}")
+    message(STATUS "  now check runtime lib path: ${_runtime_lib_path}")
+    if(EXISTS "${_runtime_lib_path}")
+      set(_runtime_lookup_succeed 1)
+      string(REGEX REPLACE "^lib/" "" _runtime_platform_dir "${_lib_relative_dir}")
+      set(${_lib_name}-runtime-lib "${_runtime_lib_path}" CACHE INTERNAL "")
+      set(${_lib_name}-runtime-lib-dir "${_lib_package_dir}/${_lib_relative_dir}" CACHE INTERNAL "")
+      set(${_lib_name}-runtime-module-dir "${_lib_name_alias}" CACHE INTERNAL "")
+      set(${_lib_name}-runtime-platform-dir "${_runtime_platform_dir}" CACHE INTERNAL "")
+      set(${_lib_name}-runtime-lib-file-name "${_runtime_lib_file_name}" CACHE INTERNAL "")
+      set(${_lib_name}-runtime-res-relative-path "${_lib_name_alias}/lib/${_runtime_platform_dir}/${_runtime_lib_file_name}" CACHE INTERNAL "")
+      break()
+    endif()
+  endforeach()
+
+  if((NOT ${_runtime_lookup_succeed}) OR (NOT EXISTS "${${_lib_name}-runtime-lib}"))
+    message(FATAL_ERROR "lookup runtime lib \"${_lib_name}\" failed! \"${_runtime_lib_file_name}\" not exists! please check the file.")
+  endif()
+
+  set(${_lib_name}-lib "" CACHE INTERNAL "")
+  set(${_lib_name}-inc "${_lib_package_dir}/include" CACHE INTERNAL "")
+  message(STATUS "${_lib_name}-inc => \"${${_lib_name}-inc}\"")
+  if (NOT EXISTS "${${_lib_name}-inc}")
+    message(FATAL_ERROR "\"${${_lib_name}-inc}\" not exists! did you forgot to copy header? if this lib no need header, just create empty folder for bypass this error")
+  endif()
+
+  set(${_lib_name}-asset "${_lib_package_dir}/asset" CACHE INTERNAL "")
+  message(STATUS "${_lib_name}-asset => \"${${_lib_name}-asset}\"")
+  if (EXISTS "${${_lib_name}-asset}")
+    if(DEFINED _PRJ_DEPENDENCY_THIRD_ASSETS)
+      list(APPEND _PRJ_DEPENDENCY_THIRD_ASSETS ";${_lib_name_alias}=${${_lib_name}-asset}")
+      set(_PRJ_DEPENDENCY_THIRD_ASSETS ${_PRJ_DEPENDENCY_THIRD_ASSETS} PARENT_SCOPE)
+    else()
+      message(FATAL_ERROR "\"_PRJ_DEPENDENCY_THIRD_ASSETS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
+    endif()
+  else()
+    unset(${_lib_name}-asset CACHE)
+  endif()
+
+  if(DEFINED _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS)
+    list(APPEND _PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS "${_lib_name_alias}|${${_lib_name}-runtime-platform-dir}|${${_lib_name}-runtime-lib}")
+    set(_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS ${_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS} PARENT_SCOPE)
+  else()
+    message(FATAL_ERROR "\"_PRJ_DEPENDENCY_THIRD_RUNTIME_LIBS\" NOT DEFINED! you should define it on your root CMakeLists.txt")
+  endif()
+
+  set(${_lib_name}-runtime-enabled ON CACHE INTERNAL "")
+  message(STATUS "${_lib_name}-runtime-lib => \"${${_lib_name}-runtime-lib}\"")
+  message(STATUS "${_lib_name}-runtime-res-relative-path => \"${${_lib_name}-runtime-res-relative-path}\"")
+endmacro(_find_runtime_lib_easy)
+
+macro(define_find_lib_easy_shared_mode _out_var _cache_var)
+  if(${ARGC} GREATER 2)
+    set(_shared_mode_default "${ARGV2}")
+  else()
+    set(_shared_mode_default "${${_out_var}}")
+  endif()
+  if("x${_shared_mode_default}" STREQUAL "x")
+    set(_shared_mode_default "LINK")
+  endif()
+  string(TOUPPER "${_shared_mode_default}" _shared_mode_default)
+  if((NOT "${_shared_mode_default}" STREQUAL "LINK") AND (NOT "${_shared_mode_default}" STREQUAL "RUNTIME"))
+    message(FATAL_ERROR "invalid default shared mode \"${_shared_mode_default}\", should be LINK or RUNTIME")
+  endif()
+
+  set(${_cache_var} "${_shared_mode_default}" CACHE STRING "${_cache_var}: LINK or RUNTIME")
+  set_property(CACHE ${_cache_var} PROPERTY STRINGS LINK RUNTIME)
+
+  set(${_out_var} "${${_cache_var}}")
+  if("x${${_out_var}}" STREQUAL "x")
+    set(${_out_var} "${_shared_mode_default}")
+  endif()
+  string(TOUPPER "${${_out_var}}" ${_out_var})
+  if((NOT "${${_out_var}}" STREQUAL "LINK") AND (NOT "${${_out_var}}" STREQUAL "RUNTIME"))
+    message(FATAL_ERROR "invalid shared mode \"${${_out_var}}\" from ${_cache_var}, should be LINK or RUNTIME")
+  endif()
+  set(${_cache_var} "${${_out_var}}" CACHE STRING "${_cache_var}: LINK or RUNTIME" FORCE)
+endmacro(define_find_lib_easy_shared_mode)
+
+macro(make_runtime_lib_compile_definitions _out_var _prefix _lib_name)
+  set(${_out_var} "")
+  standardization_lib_name(_lib_name)
+  if((DEFINED ${_lib_name}-runtime-enabled) AND (${${_lib_name}-runtime-enabled}))
+    list(APPEND ${_out_var}
+      ${_prefix}_RUNTIME_LOAD=1
+      ${_prefix}_RUNTIME_MODULE_DIR_NAME=\"${${_lib_name}-runtime-module-dir}\"
+      ${_prefix}_RUNTIME_PLATFORM_DIR=\"${${_lib_name}-runtime-platform-dir}\"
+      ${_prefix}_RUNTIME_LIB_FILE_NAME=\"${${_lib_name}-runtime-lib-file-name}\"
+      ${_prefix}_RUNTIME_RES_RELATIVE_PATH=\"${${_lib_name}-runtime-res-relative-path}\")
+  else()
+    list(APPEND ${_out_var}
+      ${_prefix}_RUNTIME_LOAD=0)
+  endif()
+endmacro(make_runtime_lib_compile_definitions)
+
+macro(show_find_lib_easy_result _lib_name)
+  standardization_lib_name(_lib_name)
+  message(STATUS "find_me(${_lib_name}) show: ${_lib_name}-lib=${${_lib_name}-lib}, ${_lib_name}-inc=${${_lib_name}-inc}, ${_lib_name}-asset=${${_lib_name}-asset}")
+  if((DEFINED ${_lib_name}-runtime-enabled) AND (${${_lib_name}-runtime-enabled}))
+    message(STATUS "find_me(${_lib_name}) runtime: enabled=${${_lib_name}-runtime-enabled}, lib=${${_lib_name}-runtime-lib}, res_relative_path=${${_lib_name}-runtime-res-relative-path}")
+  endif()
+endmacro(show_find_lib_easy_result)
+
+#
+# find_lib_easy_by_dep_mode: helper for find_lib with dynamic-library dep mode.
+#
+# _lib_name: the name of lib that you want to lookup. eg: "curl"
+# _shared: ON/OFF. ON for find shared lib, OFF for find static lib.
+# _lib_package_dir: base folder for the "_lib_name".
+# _shared_mode: LINK/RUNTIME. Only used when _shared is ON. Default is LINK.
+#
+macro(find_lib_easy_by_dep_mode _lib_name _shared _lib_package_dir)
+  standardization_lib_name(_lib_name)
+
+  if("x${_lib_package_dir}" STREQUAL "x")
+    check_third_party_dir()
+    set(_lib_package_dir "${PRJ_THIRD_PARTY_DIR}/${_lib_name}")
+  elseif(NOT EXISTS "${_lib_package_dir}")
+    message(FATAL_ERROR " \"${_lib_package_dir}\" not exists! check it.")
+  endif()
+
+  set(_shared_mode "LINK")
+  if(${ARGC} GREATER 3)
+    set(_shared_mode "${ARGV3}")
+  endif()
+  if("x${_shared_mode}" STREQUAL "x")
+    set(_shared_mode "LINK")
+  endif()
+  string(TOUPPER "${_shared_mode}" _shared_mode)
+
+  if(NOT ${_shared})
+    set(_effective_dep_mode "STATIC")
+  else()
+    if((NOT "${_shared_mode}" STREQUAL "LINK") AND (NOT "${_shared_mode}" STREQUAL "RUNTIME"))
+      message(FATAL_ERROR "invalid shared mode \"${_shared_mode}\" for ${_lib_name}, should be LINK or RUNTIME")
+    endif()
+    set(_effective_dep_mode "${_shared_mode}")
+  endif()
+
+  _sync_find_lib_easy_dep_mode(${_lib_name} ${_effective_dep_mode})
+
+  if("${_effective_dep_mode}" STREQUAL "RUNTIME")
+    _find_runtime_lib_easy(${_lib_name} ${_lib_package_dir})
+  else()
+    _find_lib_easy_link_impl(${_lib_name} ${_shared} ${_lib_package_dir})
+  endif()
+endmacro(find_lib_easy_by_dep_mode)
+
+#
+# find_lib_easy: helper for find_lib.
+#                find a library with a given name from the subdirectories of a given directory.
+#
+# _lib_name: the name of lib that you want to lookup. eg: "curl"
+# _shared: ON/OFF. ON for find shared lib, OFF for find static lib.
+# _lib_package_dir: base folder for the "_lib_name".
+#                   eg. "curl" maybe provide package dir with "${PRJ_THIRD_PARTY_DIR}/curl"
+# _shared_mode: optional LINK/RUNTIME. Only used when _shared is ON. 
+#
+macro(find_lib_easy _lib_name _shared _lib_package_dir)
+  set(_shared_mode "") # <-- let find_lib_easy_by_dep_mode to decide default shared mode.
+  if(${ARGC} GREATER 3)
+    set(_shared_mode "${ARGV3}")
+  endif()
+  find_lib_easy_by_dep_mode(${_lib_name} ${_shared} ${_lib_package_dir} ${_shared_mode})
+endmacro(find_lib_easy)

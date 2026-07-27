@@ -35,10 +35,7 @@ if(PRJ_BUILD_ALL_IN_ONE)
           # ${PRJ_CXX_COMPILE_OPTIONS}
         DEPS
           ${_ALL_IN_ONE_DEP_MODULE}
-          # ${CMAKE_PROJECT_NAME}::common
           # ${CMAKE_PROJECT_NAME}::api
-          # ${CMAKE_PROJECT_NAME}::work_flow
-          #${PRJ_DEPENDS_LOG}
         PUBLIC
     )
 
@@ -64,6 +61,7 @@ if(PRJ_BUILD_ALL_IN_ONE)
 
     # ---------------------------------------------------------------------------------------
     # copy "_PRJ_DEPENDENCY_THIRD_LIBS" and "_PRJ_DEPENDENCY_THIRD_ASSETS" to target output dir.
+    # 拷贝第三方库和资源到目标输出目录
     # ---------------------------------------------------------------------------------------
     copy_dependency_lib_and_asset(${CMAKE_PROJECT_NAME} "../../res")
     

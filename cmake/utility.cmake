@@ -216,6 +216,73 @@ function(prj_enable_sanitizer target_name)
   endif()
 endfunction(prj_enable_sanitizer)
 
+# 检测当前工具链是否支持 IPO/LTO，结果缓存到 PRJ_IPO_SUPPORTED_CACHED（每种工具链只检测一次）。
+# 使用 check_ipo_supported 的 RESULT 形式：不支持时只置为 NO，不会 fatal error，
+# 从而避免 CMP0069=NEW 下直接设置 IPO 属性导致交叉编译（如 linaro/uclibc）在 generate 阶段报错。
+macro(_prj_check_ipo_supported _result_var)
+  if(NOT DEFINED PRJ_IPO_SUPPORTED_CACHED)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT _ipo_ok OUTPUT _ipo_output LANGUAGES C CXX)
+
+    if(_ipo_ok)
+      set(PRJ_IPO_SUPPORTED_CACHED ON CACHE INTERNAL "IPO/LTO supported by toolchain")
+      message(STATUS "IPO/LTO supported: will enable for shared libs in non-Debug build.")
+    else()
+      set(PRJ_IPO_SUPPORTED_CACHED OFF CACHE INTERNAL "IPO/LTO supported by toolchain")
+      message(STATUS "IPO/LTO not supported by toolchain, skip: ${_ipo_output}")
+    endif()
+  endif()
+
+  set(${_result_var} ${PRJ_IPO_SUPPORTED_CACHED})
+endmacro(_prj_check_ipo_supported)
+
+# 精简动态库产物体积：对动态库开启 IPO/LTO，并按 PRJ_STRIP_SHARED_LIB_MODE 在链接期 strip 符号。
+# 两项都只对 _lib_type=SHARED 生效。
+#
+# 1) IPO/LTO：仅非 Debug 且非 ASAN 时开启，用 per-config 属性 INTERPROCEDURAL_OPTIMIZATION_<CONFIG>。
+#    工具链不支持 LTO 时经 check_ipo_supported 自动跳过（避免 CMP0069=NEW 下 generate 报错）。
+# 2) strip：由 PRJ_STRIP_SHARED_LIB_MODE(none|debug|all) 控制，其默认值已按构建类型编码
+#    （Debug=none 保留全部符号供排查，非 Debug=all 彻底精简），也可编译传参覆盖。
+#    - debug: --strip-debug 去 DWARF 调试段(实测占 .so 约 89%)，保留 .symtab 供崩溃回溯。
+#    - all  : --strip-all 连符号表一并去掉，产物最小。
+#    - ASAN 构建强制不 strip（诊断需要符号）；MSVC 无 --strip-* 标志，跳过。
+function(_prj_optimize_shared_lib _tgt_name _lib_type)
+  if(NOT _lib_type STREQUAL "SHARED")
+    return()
+  endif()
+
+  # --- IPO/LTO：仅非 Debug、非 ASAN ---
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type_upper)
+
+  if(NOT PRJ_ENABLE_ASAN AND NOT _build_type_upper STREQUAL "DEBUG")
+    _prj_check_ipo_supported(_ipo_ok)
+
+    if(_ipo_ok)
+      set_property(TARGET ${_tgt_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+      set_property(TARGET ${_tgt_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
+      set_property(TARGET ${_tgt_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+      message(STATUS "  enable IPO/LTO (INTERPROCEDURAL_OPTIMIZATION for non-Debug configs) for shared lib \"${_tgt_name}\"")
+    endif()
+  endif()
+
+  # --- link-time strip：按 PRJ_STRIP_SHARED_LIB_MODE，ASAN/MSVC 不 strip ---
+  if(PRJ_ENABLE_ASAN OR MSVC)
+    return()
+  endif()
+
+  if(PRJ_STRIP_SHARED_LIB_MODE STREQUAL "debug")
+    target_link_options(${_tgt_name} PRIVATE "LINKER:--strip-debug")
+    message(STATUS "  enable link-time --strip-debug for shared lib \"${_tgt_name}\"")
+  elseif(PRJ_STRIP_SHARED_LIB_MODE STREQUAL "all")
+    target_link_options(${_tgt_name} PRIVATE "LINKER:--strip-all")
+    message(STATUS "  enable link-time --strip-all for shared lib \"${_tgt_name}\"")
+  elseif(PRJ_STRIP_SHARED_LIB_MODE STREQUAL "none")
+    message(STATUS "  keep all symbols (PRJ_STRIP_SHARED_LIB_MODE=none) for shared lib \"${_tgt_name}\"")
+  else()
+    message(WARNING "  unknown PRJ_STRIP_SHARED_LIB_MODE=\"${PRJ_STRIP_SHARED_LIB_MODE}\" (expect none|debug|all), skip strip.")
+  endif()
+endfunction(_prj_optimize_shared_lib)
+
 # Joins arguments and places the results in ${result_var}.
 function(join result_var)
   set(result "")
@@ -321,7 +388,8 @@ endmacro(batch_setup_target_properties)
 # LINKOPTS: List of link options
 # PUBLIC: Add this so that this library will be exported under ${CMAKE_PROJECT_NAME}::
 # Also in IDE, target will appear in ${CMAKE_PROJECT_NAME} folder while non PUBLIC will be in ${CMAKE_PROJECT_NAME}/internal.
-# TESTONLY: When added, this target will only be built if BUILD_TESTING=ON.
+# TESTONLY: 测试支持库标记。仅当 PRJ_BUILD_UNIT_TESTS 或 PRJ_BUILD_TOOLS 任一开启时才构建，
+#           且永不参与 install/发版。用于声明仅供测试/工具消费的支持库（桩、mock、共享测试工具）。
 #
 # Note:
 # By default, prj_cc_library will always create a library named ${CMAKE_PROJECT_NAME}_${NAME},
@@ -364,7 +432,9 @@ function(prj_cc_library)
     ${ARGN}
   )
 
-  if(PRJ_CC_LIB_TESTONLY AND NOT PRJ_BUILD_TESTS)
+  # 测试支持库（TESTONLY）：只有当单元测试和工具都不构建时才跳过。
+  # 此类库可能被单元测试或 vtn_api_test 工具消费，任一类测试产物在构建即需保留。
+  if(PRJ_CC_LIB_TESTONLY AND NOT (PRJ_BUILD_UNIT_TESTS OR PRJ_BUILD_TOOLS))
     return()
   endif()
 
@@ -396,16 +466,15 @@ function(prj_cc_library)
     set(PRJ_CC_LIB_IS_INTERFACE 0)
   endif()
 
+  set(_lib_type "STATIC")
   if(PRJ_BUILD_SHARED OR BUILD_SHARED_LIBS)
     set(_lib_type "SHARED")
     
-    # "PRJ_BUILD_ALL_IN_ONE" 选项打开的情况下 强制所有依赖子库编译为静态库，以便主库可以将它们全部包含进来。
+    # "PRJ_BUILD_ALL_IN_ONE" 选项打开的情况下 强制所有依赖的 子模块 编译为静态库，以便主库可以将它们全部包含进来.
     if(PRJ_BUILD_ALL_IN_ONE AND(NOT _NAME STREQUAL "${CMAKE_PROJECT_NAME}"))
       set(_lib_type "STATIC")
       message(STATUS "  PRJ_BUILD_ALL_IN_ONE is ON, let \"${_NAME}\" lib_type change to ${_lib_type}, for \"${CMAKE_PROJECT_NAME}\" to include it.")
     endif()
-  else()
-    set(_lib_type "STATIC")
   endif()
 
   if(PRJ_MINIMIZE)
@@ -479,6 +548,10 @@ function(prj_cc_library)
     if(PRJ_ENABLE_ASAN)
       prj_enable_sanitizer(${_NAME})
     endif()
+
+    # 非 Debug 动态库：开启 IPO/LTO + 链接期 strip 调试信息，精简产物体积
+    # （工具链不支持 IPO 时自动跳过；ASAN/Debug/RelWithDebInfo 保留调试信息）。
+    _prj_optimize_shared_lib(${_NAME} ${_lib_type})
 
     # Add all prj targets to a a folder in the IDE for organization.
     if(PRJ_CC_LIB_PUBLIC)
@@ -559,7 +632,7 @@ function(prj_cc_library)
   add_library(${CMAKE_PROJECT_NAME}::${PRJ_CC_LIB_NAME} ALIAS ${_NAME})
 endfunction(prj_cc_library)
 
-# prj_cc_test()
+# prj_cc_unit_test()
 #
 # CMake function to imitate Bazel's cc_test rule.
 #
@@ -572,7 +645,7 @@ endfunction(prj_cc_library)
 # LINKOPTS: List of link options
 #
 # Note:
-# By default, prj_cc_test will always create a binary named ${CMAKE_PROJECT_NAME}_${NAME}.
+# By default, prj_cc_unit_test will always create a binary named ${CMAKE_PROJECT_NAME}_${NAME}.
 # This will also add it to ctest list as ${CMAKE_PROJECT_NAME}_${NAME}.
 #
 # Usage:
@@ -586,7 +659,7 @@ endfunction(prj_cc_library)
 # PUBLIC
 # )
 #
-# prj_cc_test(
+# prj_cc_unit_test (
 # NAME
 # awesome_test
 # HDRS
@@ -597,17 +670,138 @@ endfunction(prj_cc_library)
 # gmock
 # gtest_main
 # )
-function(prj_cc_test)
-  if(NOT PRJ_BUILD_TESTS)
+#
+# prj_cc_unit_test - 创建单元测试可执行程序
+#   受 PRJ_BUILD_UNIT_TESTS 控制（Debug 默认开，Release 默认关）
+#   用于仅开发期验证的单元测试
+#
+function(prj_cc_unit_test)
+  if(NOT PRJ_BUILD_UNIT_TESTS)
     return()
   endif()
 
-  cmake_parse_arguments(PRJ_CC_TEST
+  cmake_parse_arguments(PRJ_CC_UNIT_TEST
     ""
     "NAME"
     "HDRS;SRCS;COPTS;DEFINES;LINKOPTS;DEPS"
     ${ARGN}
   )
+
+  set(_NAME "${CMAKE_PROJECT_NAME}_${PRJ_CC_UNIT_TEST_NAME}")
+
+  add_executable(${_NAME} "")
+  target_sources(${_NAME} PRIVATE ${PRJ_CC_UNIT_TEST_SRCS})
+  target_include_directories(${_NAME}
+    PUBLIC ${PRJ_COMMON_INCLUDE_DIRS} ${PRJ_CC_UNIT_TEST_HDRS}
+    PRIVATE ${GMOCK_INCLUDE_DIRS} ${GTEST_INCLUDE_DIRS}
+  )
+
+  if(PRJ_CC_UNIT_TEST_DEFINES)
+    target_compile_definitions(${_NAME} PUBLIC ${PRJ_CC_UNIT_TEST_DEFINES})
+  endif()
+
+  if(PRJ_CC_UNIT_TEST_COPTS)
+    target_compile_options(${_NAME} PRIVATE ${PRJ_CC_UNIT_TEST_COPTS})
+  endif()
+
+  if(PRJ_ENABLE_ASAN)
+    prj_enable_sanitizer(${_NAME})
+  endif()
+
+  target_link_libraries(${_NAME}
+    PUBLIC ${PRJ_CC_UNIT_TEST_DEPS}
+    PRIVATE ${PRJ_CC_UNIT_TEST_LINKOPTS}
+  )
+
+  # Add all targets to a folder in the IDE for organization.
+  set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/test)
+
+  batch_setup_target_properties(${_NAME})
+
+  add_test(NAME ${_NAME} COMMAND ${_NAME})
+
+  # setup executable alias
+  add_executable(${CMAKE_PROJECT_NAME}::${PRJ_CC_UNIT_TEST_NAME} ALIAS ${_NAME})
+  message(STATUS "${CMAKE_PROJECT_NAME}::${PRJ_CC_UNIT_TEST_NAME} ALIAS ${_NAME} (unit test)")
+
+  message(STATUS "target: ${_NAME} executable(unit_test)")
+endfunction(prj_cc_unit_test)
+
+#
+# prj_cc_tool - 创建工具/示例可执行程序
+#   受 PRJ_BUILD_TOOLS 控制（始终默认开）
+#   用于发版验证工具（vtn_api_test）和对外示例（vtn_example）
+#
+function(prj_cc_tool)
+  if(NOT PRJ_BUILD_TOOLS)
+    return()
+  endif()
+
+  cmake_parse_arguments(PRJ_CC_TOOL
+    ""
+    "NAME"
+    "HDRS;SRCS;COPTS;DEFINES;LINKOPTS;DEPS"
+    ${ARGN}
+  )
+
+  set(_NAME "${CMAKE_PROJECT_NAME}_${PRJ_CC_TOOL_NAME}")
+
+  add_executable(${_NAME} "")
+  target_sources(${_NAME} PRIVATE ${PRJ_CC_TOOL_SRCS})
+  target_include_directories(${_NAME}
+    PUBLIC ${PRJ_COMMON_INCLUDE_DIRS} ${PRJ_CC_TOOL_HDRS}
+    PRIVATE ${GMOCK_INCLUDE_DIRS} ${GTEST_INCLUDE_DIRS}
+  )
+
+  if(PRJ_CC_TOOL_DEFINES)
+    target_compile_definitions(${_NAME} PUBLIC ${PRJ_CC_TOOL_DEFINES})
+  endif()
+
+  if(PRJ_CC_TOOL_COPTS)
+    target_compile_options(${_NAME} PRIVATE ${PRJ_CC_TOOL_COPTS})
+  endif()
+
+  if(PRJ_ENABLE_ASAN)
+    prj_enable_sanitizer(${_NAME})
+  endif()
+
+  target_link_libraries(${_NAME}
+    PUBLIC ${PRJ_CC_TOOL_DEPS}
+    PRIVATE ${PRJ_CC_TOOL_LINKOPTS}
+  )
+
+  # Add all targets to a folder in the IDE for organization.
+  set_property(TARGET ${_NAME} PROPERTY FOLDER ${PRJ_IDE_FOLDER}/tools)
+
+  batch_setup_target_properties(${_NAME})
+
+  add_test(NAME ${_NAME} COMMAND ${_NAME})
+
+  # setup executable alias
+  add_executable(${CMAKE_PROJECT_NAME}::${PRJ_CC_TOOL_NAME} ALIAS ${_NAME})
+  message(STATUS "${CMAKE_PROJECT_NAME}::${PRJ_CC_TOOL_NAME} ALIAS ${_NAME} (tool)")
+
+  message(STATUS "target: ${_NAME} executable(tool)")
+endfunction(prj_cc_tool)
+
+#
+# prj_cc_test - 已废弃，向后兼容层
+#   建议迁移到 prj_cc_unit_test 或 prj_cc_tool
+#   当前行为：映射到 prj_cc_unit_test
+#
+function(prj_cc_test)
+  if(NOT PRJ_BUILD_UNIT_TESTS)
+    return()
+  endif()
+
+  cmake_parse_arguments(PRJ_CC_TEST
+    "PUBLIC"  # 兼容旧的 PUBLIC 参数（但已忽略）
+    "NAME"
+    "HDRS;SRCS;COPTS;DEFINES;LINKOPTS;DEPS"
+    ${ARGN}
+  )
+
+  message(WARNING "prj_cc_test is deprecated. Please use prj_cc_unit_test or prj_cc_tool instead. Current target: ${PRJ_CC_TEST_NAME}")
 
   set(_NAME "${CMAKE_PROJECT_NAME}_${PRJ_CC_TEST_NAME}")
 

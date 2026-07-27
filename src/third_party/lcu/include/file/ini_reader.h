@@ -2,7 +2,7 @@
 
 SPDX-License-Identifier: BSD-3-Clause
 
-Copyright (C) 2009-2020, Ben Hoyt
+Copyright (C) 2009-2025, Ben Hoyt
 
 inih is released under the New BSD license (see LICENSE.txt). Go to the project
 home page for more info:
@@ -47,7 +47,13 @@ extern "C" {
 #endif
 #endif
 
-/* Typedef for prototype of handler function. */
+/* Typedef for prototype of handler function.
+
+   Note that even though the value parameter has type "const char*", the user
+   may cast to "char*" and modify its content, as the value is not used again
+   after the call to ini_reader_handler. This is not true of section and name --
+   those must not be modified.
+*/
 #if INI_HANDLER_LINENO
 typedef int (*ini_reader_handler)(void* user, const char* section,
                            const char* name, const char* value,
@@ -86,15 +92,26 @@ INI_API int ini_reader_parse_stream(ini_reader reader, void* stream, ini_reader_
                      void* user);
 
 /* Same as ini_reader_parse(), but takes a zero-terminated string with the INI data
-instead of a file. Useful for parsing INI data from a network socket or
-already in memory. */
+   instead of a file. Useful for parsing INI data from a network socket or
+   which is already in memory. */
 INI_API int ini_reader_parse_string(const char* string, ini_reader_handler handler, void* user);
+
+/* Same as ini_reader_parse_string(), but takes a string and its length, avoiding
+   strlen(). Useful for parsing INI data from a network socket or which is
+   already in memory, or interfacing with C++ std::string_view. */
+INI_API int ini_reader_parse_string_length(const char* string, size_t length, ini_reader_handler handler, void* user);
 
 /* Nonzero to allow multi-line value parsing, in the style of Python's
    configparser. If allowed, ini_reader_parse() will call the handler with the same
-   name for each subsequent line parsed. */
+   name for each subsequent line parsed.
+
+   Disabled by default in libcutils: with multi-line on, an indented line such
+   as "   port=8080" following a "host=..." line is swallowed as a continuation
+   of host's value instead of being parsed as its own key, so the indented key
+   silently disappears. Turning it off makes leading-whitespace lines fall
+   through to the normal name=value branch. */
 #ifndef INI_ALLOW_MULTILINE
-#define INI_ALLOW_MULTILINE 1
+#define INI_ALLOW_MULTILINE 0
 #endif
 
 /* Nonzero to allow a UTF-8 BOM sequence (0xEF 0xBB 0xBF) at the start of
@@ -119,22 +136,24 @@ INI_API int ini_reader_parse_string(const char* string, ini_reader_handler handl
 #define INI_INLINE_COMMENT_PREFIXES ";"
 #endif
 
-/* Nonzero to use stack for line buffer, zero to use heap (malloc/free). */
+/* Nonzero to use stack for line buffer, zero to use heap (malloc/free).
+   libcutils defaults to heap + realloc so long config values and long comments
+   can be handled without a fixed 200-byte line cap. */
 #ifndef INI_USE_STACK
-#define INI_USE_STACK 1
+#define INI_USE_STACK 0
 #endif
 
 /* Maximum line length for any line in INI file (stack or heap). Note that
    this must be 3 more than the longest line (due to '\r', '\n', and '\0'). */
 #ifndef INI_MAX_LINE
-#define INI_MAX_LINE 200
+#define INI_MAX_LINE (64 * 1024)
 #endif
 
 /* Nonzero to allow heap line buffer to grow via realloc(), zero for a
    fixed-size buffer of INI_MAX_LINE bytes. Only applies if INI_USE_STACK is
    zero. */
 #ifndef INI_ALLOW_REALLOC
-#define INI_ALLOW_REALLOC 0
+#define INI_ALLOW_REALLOC 1
 #endif
 
 /* Initial size in bytes for heap line buffer. Only applies if INI_USE_STACK

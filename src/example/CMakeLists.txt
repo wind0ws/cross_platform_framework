@@ -14,7 +14,7 @@ if (UNIX)
   endif(ANDROID)
 endif (UNIX)
 
-prj_cc_test(
+prj_cc_tool(
   NAME
     ${MODULE_NAME}
   HDRS
@@ -27,15 +27,14 @@ prj_cc_test(
     ${_DEPENDS_LIB}
     #${CMAKE_PROJECT_NAME}::all
     #${CMAKE_PROJECT_NAME} # <-- PRJ_BUILD_ALL_IN_ONE
-  PUBLIC
 )
 
-if(PRJ_BUILD_TESTS)
+if(PRJ_BUILD_TOOLS)
   if(MSVC)
     # VS_STARTUP_PROJECT not support alias target, so find the real name first.
     get_target_property(_startup_tgt_name ${CMAKE_PROJECT_NAME}::example ALIASED_TARGET)
-    #set vs startup project. 
+    #set vs startup project.
     set_property(DIRECTORY ${PRJ_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${_startup_tgt_name})
     message(STATUS "  set startup project:  ${_startup_tgt_name}")
   endif(MSVC)
-endif(PRJ_BUILD_TESTS)
+endif(PRJ_BUILD_TOOLS)

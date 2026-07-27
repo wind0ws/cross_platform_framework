@@ -27,7 +27,7 @@ else
 fi
 
 cmake -H./  -B"$BUILD_DIR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" "${CMAKE_EXTEND_ARGS[@]}"             \
-                        -DPLATFORM=$PLATFORM -DBUILD_SHARED_LIBS=ON -DPRJ_BUILD_ALL_IN_ONE=ON -DPRJ_BUILD_TESTS=ON
+                        -DPLATFORM=$PLATFORM 
 
 ERR_CODE=$?
 if [ $ERR_CODE -ne 0 ];then

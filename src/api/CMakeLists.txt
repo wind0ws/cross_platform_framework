@@ -16,7 +16,7 @@ prj_cc_library(
   PUBLIC
 )
 
-#prj_cc_test(
+#prj_cc_unit_test(
 #  NAME
 #    ${MODULE_NAME}_test
 #  HDRS
@@ -27,5 +27,4 @@ prj_cc_library(
 #    ${PRJ_COMPILE_OPTIONS}
 #  DEPS
 #    ${CMAKE_PROJECT_NAME}::${MODULE_NAME}
-#  PUBLIC
 #)

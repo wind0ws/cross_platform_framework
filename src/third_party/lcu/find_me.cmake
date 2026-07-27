@@ -35,4 +35,4 @@ if (${_LIB_NAME}_DEPENDS_SYS)
   set(${_LIB_NAME}-lib "${${_LIB_NAME}-lib}" PARENT_SCOPE) # <-- 反馈到父级模块
 endif()
 
-message(STATUS "find_me(${_LIB_NAME}) show: ${_LIB_NAME}-lib=${${_LIB_NAME}-lib}, ${_LIB_NAME}-inc=${${_LIB_NAME}-inc}, ${_LIB_NAME}-asset=${${_LIB_NAME}-asset}")
+show_find_lib_easy_result(${_LIB_NAME})

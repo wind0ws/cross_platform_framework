@@ -1,126 +1,461 @@
+# CMake 跨平台项目编译架构
 
-# cmake跨平台项目编译架构
-  >
-  > 在一个脚本(`make_cross_platform.sh`)中实现交叉编译.
-  >
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CMake](https://img.shields.io/badge/CMake-3.15+-blue.svg)](https://cmake.org/)
+[![C++](https://img.shields.io/badge/C++-11-blue.svg)](https://isocpp.org/)
 
- **特性**:
-  >
-  > 1. 支持跨平台一键编译, 例如: `./make_cross_platform.sh rk3308 Release`
-  > 2. 自动查找库及其资源、头文件, 第三方库和头文件统一放到 `src/third_party/库名` 文件夹下.  
-  >    支持编译后自动拷贝各个库依赖的资源到部署目录下.
-  > 3. 自动查找第三方库变量设为`CACHE`的, 避免一个project多个子模块单独依赖造成的多次查找问题.
-  > 4. 自动添加当前目录到当前模块的`target_include_dicrectories`中, 由于是public的, 依赖此模块的也能自动获得.
-  > 5. 脚本支持自动查找cmake/ninja/ndk路径. 支持检测环境变量,若不存在使用兜底路径,具体可以看编译脚本里的配置.
-  > 6. 支持编译安卓时选择stl: `c++_static` 或 `gnustl_static`, 并自动选择对应的库(例如:`armeabi-v7a_release_gnustl_static`).  
-  >     默认不带stl名称的文件夹的库(例如`armeabi-v7a_release`)是`c++_static`编译的, 这也是Android默认编译的stl类型.
-  > 7. 支持windows编译脚本编译传递vs版本, 以及编译时自动选择对应vs版本的库目录(例如: `x32_debug_vs2022`).
-  > 8. 在开启`PRJ_BUILD_ALL_IN_ONE`且编译动态库时, 会自动将ALL_IN_ONE依赖的子模块编译的库类型改为 `STATIC`,  
-  >    这样就可以将各个子模块代码打包进动态库中.
-  > 9. 在windows msvc下抑制LNK4099警告：依赖的库缺少pdb调试信息.
-  > 10. 项目C/CXX编译选项分开: 若在定义lib库时没有定义编译选项, 自动选择 `PRJ_COMPILE_OPTIONS` 和 `PRJ_CXX_COMPILE_OPTIONS` .
-  > 11. 支持单元测试(`prj_cc_test()`), 可以给每个模块编写单独的测试用例.
-  > 12. 更新 [lcu](https://github.com/wind0ws/libcutils/) 库到最新开发版.
-  >
+一个功能完善的 CMake 跨平台编译框架模板，支持 Windows、Linux、Android 及嵌入式平台的一键编译。
+
+## 项目简介
+
+本项目提供了一套完整的跨平台 C/C++ 项目编译架构，通过统一的脚本和 CMake 配置，实现多平台、多架构的自动化编译。适用于需要在多个平台部署的 C/C++ 项目，如嵌入式系统、移动应用、桌面应用等。
+
+**当前版本**: 3.0.0
+
+## 核心特性
+
+### 编译系统
+
+- ✅ **一键跨平台编译** - 通过统一脚本实现 Windows/Linux/Android/嵌入式平台编译
+- ✅ **智能依赖管理** - 自动查找和管理第三方库、头文件及资源文件
+- ✅ **模块化架构** - 支持多模块项目，自动处理模块间依赖关系
+- ✅ **灵活的构建选项** - 支持静态库/动态库、Debug/Release 等多种构建模式
+
+### 高级功能
+
+- ✅ **符号隐藏** - 自动隐藏内部符号，仅导出指定接口（通过 exports.def/exports.exp）
+- ✅ **Address Sanitizer** - 内置 ASan 支持，Debug 模式默认启用
+- ✅ **单元测试** - 集成测试框架，支持模块级单元测试（`prj_cc_test()`）
+- ✅ **All-in-One 构建** - 支持将多个子模块打包到单个动态库中
+- ✅ **预编译头** - 可选的 PCH 支持，加速编译过程
+- ✅ **Git 集成** - 自动嵌入 Git 分支和提交信息到编译产物
+
+### 平台支持
+
+- ✅ **Windows** - 支持 Win32/Win64，自动检测 Visual Studio 版本
+- ✅ **Android** - 支持多 ABI（armeabi-v7a/arm64-v8a/x86_64），可选 STL 类型
+- ✅ **Linux** - 支持 x86/x64 本地编译
+- ✅ **嵌入式平台** - 支持交叉编译（如 linaro、rk3308、r328 等）
+
+### 开发体验
+
+- ✅ **自动化资源拷贝** - 编译后自动拷贝依赖资源到部署目录
+- ✅ **智能路径检测** - 自动检测 CMake/Ninja/NDK 路径
+- ✅ **编译选项分离** - C 和 C++ 编译选项独立配置
+- ✅ **Git Hooks** - 内置 commit-msg 规范化提交信息
+
+## 快速开始
+
+### 环境要求
+
+- CMake 3.15+
+- C++11 编译器
+- Git（可选，用于版本信息嵌入）
+
+**平台特定要求**:
+
+- **Windows**: Visual Studio 2015+ 或 MinGW
+- **Android**: Android NDK r21+
+- **Linux**: GCC 5+ 或 Clang 3.8+
+- **交叉编译**: 对应平台的工具链
+
+### 编译示例
+
+#### Windows 平台
+
+```bash
+# 自动检测最新 Visual Studio 版本
+make_windows.bat Win64 Release
+
+# 指定 Visual Studio 版本
+make_windows.bat Win32 Debug "Visual Studio 16 2019"
+make_windows.bat Win64 Release "Visual Studio 17 2022"
+```
+
+#### Android 平台
+
+```bash
+# 使用默认 c++_static STL
+make_android.bat armeabi-v7a Release
+make_android.bat arm64-v8a Debug
+
+# 使用 gnustl_static STL
+make_android.bat armeabi-v7a Release gnustl_static
+```
+
+#### Linux 平台
+
+```bash
+# 本地编译 64 位
+./make_cross_platform.sh linux m64 Release
+
+# 本地编译 32 位
+./make_cross_platform.sh linux m32 Release
+```
+
+#### 嵌入式平台（交叉编译）
+
+```bash
+# 编译 linaro7.5.0 arm64
+./make_cross_platform.sh linaro7.5.0 Release "-DPRJ_ENABLE_ASAN=OFF"
+
+# 编译 rk3308
+./make_cross_platform.sh rk3308 Release "-DPRJ_HIDDEN_SYMBOLS=ON"
+```
+
+### 编译产物
+
+编译输出位于 `tool/deploy/bin/<PLATFORM>_<ABI>_<BUILD_TYPE>/` 目录：
+
+- Windows x32 Debug: `tool/deploy/bin/windows_x32_debug/`
+- Linux x64 Release: `tool/deploy/bin/linux_x64_release/`
+- Android arm64-v8a Release: `tool/deploy/bin/android_arm64-v8a_release/`
 
 ## 目录结构
 
-- 3rdparty_reference 第三方库源码：不参与自动化编译,  
-  - 请将编译好的库放入 `src/third_party/库名称/lib/<ARCH_TYPE>_<BUILD_TYPE>` 目录下.  
-  - 第三方库之所以不采用自动化依赖编译是因为每次改动代码都一起编译太耗费时间, 一般来说第三方库不怎么需要做改动.  
-- cmake 依赖脚本: cmake所需的脚本及函数, 以及工具链.  
-- doc   文档
-- src   源码
-  - api         对外接口实现模块
-  - common      通用工具模块 (建议项目其他模块都依赖此模块获取封装常用的函数调用)
-  - config      配置管理模块
-  - example     测试工具源码
-  - jni         安卓JNI实现模块,包装C/C++接口成JNI接口
-  - third_party 三方库：放置第三方库/头文件及资源 (一个三方库一个文件夹, 参见本项目示例)
-  - work_flow   工作流流转模块: 输入数据(api层规整后传入到此模块), 在内部模块之间流转,  
-                通过回调抛出处理结果给api层, 由api层规整对外的输入输出数据.
-- tool 工具：编译临时目录、发布目录等等
-  - build  编译目录, 例如使用cmake生成的工程就在这里
-  - deploy 部署发布目录
-    - bin 编译产物输出目录
-    - res 依赖的库的资源或配置
+```text
+cross_platform_framework/
+├── 3rdparty_reference/     # 第三方库源码（不参与自动编译）
+├── cmake/                  # CMake 脚本和工具链配置
+│   ├── toolchains/        # 交叉编译工具链配置文件
+│   ├── macros.cmake       # CMake 宏定义
+│   ├── platform_detector.cmake  # 平台检测
+│   └── utility.cmake      # 工具函数
+├── doc/                   # 项目文档
+├── src/                   # 源代码目录
+│   ├── api/              # 对外接口实现模块
+│   ├── common/           # 通用工具模块（建议其他模块依赖此模块）
+│   ├── config/           # 配置管理模块
+│   ├── example/          # 示例和测试工具
+│   ├── jni/              # Android JNI 接口封装
+│   ├── third_party/      # 第三方库/头文件/资源
+│   │   └── <lib_name>/   # 每个第三方库一个文件夹
+│   │       ├── include/  # 头文件
+│   │       ├── lib/      # 预编译库
+│   │       │   └── <ARCH>_<BUILD_TYPE>/  # 按平台和构建类型组织
+│   │       └── asset/    # 资源文件
+│   ├── work_flow/        # 业务流程模块
+│   ├── version.h         # 版本定义
+│   └── exports.def/exp   # 符号导出定义
+├── tool/                  # 工具和输出目录
+│   ├── build/            # CMake 生成的构建文件
+│   └── deploy/           # 部署输出目录
+│       ├── bin/          # 编译产物（按平台组织）
+│       └── res/          # 依赖的资源文件
+├── .githooks/            # Git 钩子脚本
+├── CMakeLists.txt        # 根 CMake 配置
+├── make_windows.bat      # Windows 编译脚本
+├── make_android.bat      # Android 编译脚本
+└── make_cross_platform.sh # Linux/交叉编译脚本
+```
 
-## 编译方式
-  >
-  > 支持4种BUILD_TYPE: *`Debug`*, *`Release`*, *`MinSizeRel`*, *`RelWithDebInfo`*  
-  >
-  >|  编译参数                 |   释义                          |  备注                                      |  
-  >| --------                 | :-----:                        | :-----:                                   |  
-  >| **PRJ_ENABLE_ASAN**      | 是否启用`Address Sanitizer`     | Debug编译模式默认启用, 其他编译模式默认不启用            |  
-  >| **PRJ_HIDDEN_SYMBOLS**   |  是否隐藏内部函数符号(但在`exports.def/exportx.exp`指定的除外)    | Debug模式不启用, 其他编译模式启用     |  
-  >
+### 第三方库组织规范
 
-  1. windows:
-     > 支持选择编译`Win32`还是`Win64`.  
-     > 自动检测并使用系统安装的最新 Visual Studio 版本:  
+第三方库统一放置在 `src/third_party/<lib_name>/` 目录下，按以下结构组织：
 
-       ```shell
-          make_windows.bat Win32 Debug
-       ```  
+```text
+src/third_party/<lib_name>/
+├── include/              # 头文件
+├── lib/                  # 预编译库
+│   ├── windows_x32_debug/
+│   ├── windows_x64_release/
+│   ├── android_armeabi-v7a_release/
+│   ├── android_arm64-v8a_release/
+│   ├── linux_x64_release/
+│   └── <platform>_<abi>_<build_type>/
+├── asset/                # 资源文件（会自动拷贝到部署目录）
+└── find_me.cmake         # CMake 查找脚本（可选）
+```
 
-     > 指定`Visual Studio`版本(首先确保系统里已安装对应版本):  
+## 编译配置
 
-       ```shell
-          make_windows.bat Win64 Debug "Visual Studio 14 2015 Win64"  
-          make_windows.bat Win32 Release "Visual Studio 14 2015"  
-          make_windows.bat Win32 MinSizeRel "Visual Studio 16 2019"  
-          make_windows.bat Win64 RelWithDebInfo "Visual Studio 16 2019"  
-       ```  
+### 构建类型
 
-  2. android:  
-     > 支持编译不同的`ANDROID_PLATFORM_ABI`及`ANDROID_STL(c++_static/gnustl_static)`.  
-     > 默认不加stl参数则使用的是`c++_static`
+支持 4 种标准 CMake 构建类型：
 
-       ```shell
-          # 编译 v7a abi Debug, 使用 c++_static
-          make_android.bat armeabi-v7a Debug 
-          make_android.bat arm64-v8a Release
-          # 编译 v7a abi MinSizeRel, 使用 gnustl_static
-          make_android.bat armeabi-v7a MinSizeRel gnustl_static
-          make_android.bat arm64-v8a RelWithDebInfo gnustl_static
-          make_android.bat x86_64 Release
-       ```  
+| 构建类型 | 说明 | 优化级别 | 调试信息 |
+| -------- | ---- | ------- | ------- |
+| **Debug** | 调试版本 | 无优化 | 完整 |
+| **Release** | 发布版本 | 最大优化 | 无 |
+| **MinSizeRel** | 最小体积版本 | 体积优化 | 无 |
+| **RelWithDebInfo** | 带调试信息的发布版 | 优化 | 有 |
 
-  3. linux 及其他平台(交叉编译):
-     > 这里的linux指的是本机宿主机, 通常是 x86_64 linux 系统.  
-     > 如需交叉编译, 需先在 *`cmake/toolchains/`* 下新建对应平台的交叉编译文件(用于描述编译链位置及编译参数).
-     >
-     > 例如: `linaro7.5.0` arm64编译链, 则在 *`cmake/toolchains/`* 下新建 *`linaro7.5.0.toolchain.cmake`* 交叉编译文件,  
-     > 并在里面按照cmake语法写上编译器位置及该平台必要的编译参数(如果没有就不写), 具体的写法参考本项目 *`cmake/toolchains/`* 里的示例.
+### 编译选项
 
-      ```shell
-        # 编译64位linux
-        make_cross_platform.sh linux m64 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
-        # 编译32位linux (如果宿主机是64位系统, 还需要安装32位相关的库才可以编译成功)
-        make_cross_platform.sh linux m32 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
-        
-        # 编译 linaro7.5.0 arm64
-        make_cross_platform.sh linaro7.5.0 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
-        # 编译 r328
-        make_cross_platform.sh r328 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=OFF"
-      ```
+| 选项 | 说明 | 默认值 |
+| ---- | ---- | ------ |
+| **PRJ_BUILD_SHARED** | 编译动态库 | OFF |
+| **PRJ_BUILD_ALL_IN_ONE** | 将所有模块打包到一个库 | ON |
+| **PRJ_BUILD_TESTS** | 编译单元测试 | OFF |
+| **PRJ_ENABLE_ASAN** | 启用 Address Sanitizer | Debug: ON, 其他: OFF |
+| **PRJ_HIDDEN_SYMBOLS** | 隐藏内部符号 | Debug: OFF, 其他: ON |
+| **PRJ_BUILD_PIC** | 生成位置无关代码 | ON |
+| **PRJ_ENABLE_PCH** | 启用预编译头 | OFF |
+| **PRJ_BUILD_WARNINGS** | 启用编译器警告 | OFF |
+| **PRJ_THIRD_LIB_SHARED** | 使用第三方动态库 | OFF |
 
-  4. 编译产物:
-     > 编译输出产物位于 *`tool/deploy/bin/<PLATFORM>_<ABI>_<BUILD_TYPE>`* 下.  
-     > 例如:  
-     >
-     > - 在 `windows x32 debug` 编译模式下, 输出文件夹为: `tool/deploy/bin/windows_x32_debug`  
-     > - 在 `linux x64 release` 编译模式下, 输出文件夹为: `tool/deploy/bin/linux_x64_release`
-     > - 在 `linaro7.5.0 x64 release` 编译模式下, 输出文件夹为: `tool/deploy/bin/linaro7.5.0_x64_release`  
+### 使用编译选项
 
-## 使用`githooks`
-  >
-  > 使用 *`githooks`* 约束规范化提交信息(`commit-msg`):
-  >
-  > 修改 *`.git/config`*: 使 *`hooksPath`* 指向根目录的 *`.githooks`* 文件夹  
-  >
-  >```ini
-  >  [core]
-  >  hooksPath = .githooks
-  >```
-  >
+通过 `-D` 参数传递给 CMake：
+
+```bash
+# Linux 示例：禁用 ASan，启用符号隐藏
+./make_cross_platform.sh linux m64 Release "-DPRJ_ENABLE_ASAN=OFF -DPRJ_HIDDEN_SYMBOLS=ON"
+
+# 启用测试和警告
+./make_cross_platform.sh linux m64 Debug "-DPRJ_BUILD_TESTS=ON -DPRJ_BUILD_WARNINGS=ON"
+```
+
+## 添加新模块
+
+### 1. 创建模块目录
+
+在 `src/` 下创建新模块目录，例如 `src/my_module/`。
+
+### 2. 编写 CMakeLists.txt
+
+```cmake
+set(MODULE_NAME "my_module")
+
+prj_cc_library(
+  NAME
+    ${MODULE_NAME}
+  HDRS
+    "my_module.h"
+  SRCS
+    "my_module.cpp"
+  COPTS
+    # 可选：自定义编译选项
+  DEPS
+    ${CMAKE_PROJECT_NAME}::common  # 依赖其他模块
+  DEFINES
+    # 可选：预处理器定义
+  PUBLIC
+)
+```
+
+### 3. 添加单元测试（可选）
+
+```cmake
+prj_cc_unit_test(
+  NAME
+    ${MODULE_NAME}_test
+  SRCS
+    "my_module_test.cpp"
+  DEPS
+    ${CMAKE_PROJECT_NAME}::${MODULE_NAME}
+)
+```
+
+### 4. 在父 CMakeLists.txt 中添加
+
+在 `src/CMakeLists.txt` 中添加：
+
+```cmake
+add_subdirectory(my_module)
+```
+
+## 添加第三方库
+
+### 1. 准备库文件
+
+将第三方库按平台组织到 `src/third_party/<lib_name>/lib/` 目录：
+
+```text
+src/third_party/my_lib/
+├── include/
+│   └── my_lib.h
+└── lib/
+    ├── windows_x64_release/
+    │   └── my_lib.lib
+    ├── android_arm64-v8a_release/
+    │   └── libmy_lib.a
+    └── linux_x64_release/
+        └── libmy_lib.so
+```
+
+### 2. 创建 find_me.cmake（可选）
+
+```cmake
+# src/third_party/my_lib/find_me.cmake
+set(MY_LIB_INCLUDE_DIRS ${CMAKE_CURRENT_LIST_DIR}/include)
+set(MY_LIB_LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/lib/${PRJ_PLATFORM_ABI_BUILD_TYPE}/libmy_lib.a)
+```
+
+### 3. 在模块中使用
+
+```cmake
+prj_cc_library(
+  NAME my_module
+  SRCS "my_module.cpp"
+  DEPS
+    my_lib  # 框架会自动查找 src/third_party/my_lib/
+)
+```
+
+## 交叉编译配置
+
+### 添加新的交叉编译平台
+
+在 `cmake/toolchains/` 下创建工具链文件，例如 `my_platform.toolchain.cmake`：
+
+```cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+
+# 设置编译器路径
+set(CMAKE_C_COMPILER /path/to/arm-linux-gnueabihf-gcc)
+set(CMAKE_CXX_COMPILER /path/to/arm-linux-gnueabihf-g++)
+
+# 设置查找路径
+set(CMAKE_FIND_ROOT_PATH /path/to/sysroot)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+# 可选：添加平台特定编译选项
+add_compile_options(-march=armv7-a -mfpu=neon)
+```
+
+使用新平台编译：
+
+```bash
+./makes_platform.sh my_platform Release
+```
+
+## 符号导出控制
+
+### Windows (exports.def)
+
+```def
+EXPORTS
+    my_api_function
+    my_api_init
+    my_api_cleanup
+```
+
+### Linux/Unix (exports.exp)
+
+```json
+{
+    global:
+        my_api_function;
+        my_api_init;
+        my_api_cleanup;
+    local:
+        *;
+};
+```
+
+当 `PRJ_HIDDEN_SYMBOLS=ON` 时，只有在这些文件中声明的符号会被导出。
+
+## Git Hooks 配置
+
+启用 Git Hooks 以规范化提交信息：
+
+修改 `.git/config`：
+
+```ini
+[core]
+    hooksPath = .githooks
+```
+
+或使用命令：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+提交信息格式要求：
+
+```text
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+类型（type）：
+
+- `feat`: 新功能
+- `fix`: 修复 bug
+- `docs`: 文档更新
+- `style`: 代码格式调整
+- `refactor`: 重构
+- `test`: 测试相关
+- `chore`: 构建/工具链相关
+
+## 常见问题
+
+### Q: 如何切换静态库/动态库？
+
+```bash
+# 编译动态库
+./make_cross_platform.sh linux m64 Release "-DPRJ_BUILD_SHARED=ON"
+
+# 编译静态库（默认）
+./make_cross_platform.sh linux m64 Release "-DPRJ_BUILD_SHARED=OFF"
+```
+
+### Q: 如何禁用 Address Sanitizer？
+
+```bash
+./make_cross_platform.sh linux m64 Debug "-DPRJ_ENABLE_ASAN=OFF"
+```
+
+### Q: 编译 Android 时如何选择 STL？
+
+```bash
+# 使用 c++_static（默认）
+make_android.bat arm64-v8a Release
+
+# 使用 gnustl_static
+make_android.bat arm64-v8a Release gnustl_static
+```
+
+### Q: 如何添加自定义编译选项？
+
+在模块的 `CMakeLists.txt` 中：
+
+```cmake
+prj_cc_library(
+  NAME my_module
+  SRCS "my_module.cpp"
+  COPTS
+    -Wall
+    -Wextra
+    $<$<CONFIG:Release>:-O3>  # Release 模式特定选项
+)
+```
+
+### Q: 第三方库找不到怎么办？
+
+1. 确认库文件路径符合规范：`src/third_party/<lib_name>/lib/<platform>_<abi>_<build_type>/`
+2. 检查库文件命名是否正确（Windows: `.lib`, Linux/Android: `.a` 或 `.so`）
+3. 查看 CMake 输出日志，确认平台检测是否正确
+
+## 依赖的第三方库
+
+- [lcu (libcutils)](https://github.com/wind0ws/libcutils/) - C 工具库
+
+## 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 更新日志
+
+### v3.0.0
+
+- 完善 CMake 构建系统
+- 支持符号隐藏和 Address Sanitizer
+- 改进跨平台编译脚本
+- 更新 lcu 库到最新版本
+
+---
+
+**注意**: 本框架是一个模板项目，建议根据实际需求进行定制和扩展。

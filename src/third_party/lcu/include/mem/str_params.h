@@ -59,6 +59,8 @@ int str_params_get_float(str_params_ptr params, const char *key, float *out_val)
  * combine key value pair params to string.
  * the return string is malloc on heap, so you should free after use!
  * or memory leak will occur!
+ *
+ * @note Ownership is transferred to the caller. Release it with free().
  */
 char *str_params_to_str(str_params_ptr params);
 
